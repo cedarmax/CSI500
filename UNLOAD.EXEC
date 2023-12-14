@@ -1,0 +1,86 @@
+/* UNLOAD - Unload SQL table to CMS file                   11/03/89  *          
+*                                                                    *          
+*  Use UNLOAD to save the content of an SQL table by unloading it    *          
+*  into a CMS file.  This does not delete any rows from the table,   *          
+*  but only copies rows into a CMS file.  Rows can be selected by    *          
+*  including a WHERE clause following the table name.  An ORDER BY   *          
+*  clause can also be included to cause the CMS records to be in a   *          
+*  specified sequence.                                               *          
+*                                                                    *          
+*         UNLOAD table (fname ftype fmode                            *          
+*                |     |                                             *          
+*                |     |_Optional CMS file name.  If a file name     *          
+*                |       is not specified here, the default name     *          
+*                |       will be "table" UNLOAD U.                   *          
+*                |                                                   *          
+*                |_Name of the SQL table from which rows are to be   *          
+*                  unloaded.  If the creator name is not specified,  *          
+*                  it is assumed to be CSI.  Optionally, a WHERE     *          
+*                  clause and/or an ORDER BY clause can be included  *          
+*                  following the table name.                         *          
+*                                                                    *          
+*  Each SQL column is placed in a field in the CMS record.  Fields   *          
+*  in the CMS record are separated by hex FF, with leading and       *          
+*  trailing blanks removed from each field.                          *          
+*                                                                    *          
+*  CAUTION: Each UNLOAD file will replace the previous UNLOAD file   *          
+*           with the same file name.  Therefore, if the calling      *          
+*           program can unload with more than one select condition   *          
+*           (for example, unloading by campus), then only the latest *          
+*           set of unloaded records would be saved.  This can be     *          
+*           avoided by specifying a unique UNLOAD file name for each *          
+*           unload condition.  This can be done with the CMS file    *          
+*           name option described above.                             *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1*  11/03/89  Re-written to use RXSQL instead of SQLDBSU UNLOAD.               
+*********************************************************************/          
+arg table                                                                       
+   parse var table table '(' file                                               
+   file=strip(file,T,')')                                                       
+   parse var file fn ft fm                                                      
+   parse var table table where                                                  
+   pd=pos('.',table)                                                            
+   if pd=0 then table='CSI.'table                                               
+   if fn='' then parse var table . '.' fn                                       
+   if ft='' then ft='UNLOAD'                                                    
+   if fm='' then fm='U'                                                         
+   if exist(fn ft fm)=1 then do                                                 
+    'ERASE 'fn ft fm                                                            
+     if rc/=0 then exit rc                                                      
+   end                                                                          
+  'DOS OFF'                                                                     
+   call open                                                                    
+   do until sqlcode/=0                                                          
+    'RXSQL FETCH READ INTO 'v.                                                  
+     if sqlcode=0 then do                                                       
+       i=1                                                                      
+       do until v.i='V.'i                                                       
+         v.i=strip(v.i)                                                         
+         if i=1 then rec=v.1                                                    
+         else rec=rec||'FF'x||v.i                                               
+         i=i+1                                                                  
+       end                                                                      
+      'EXECIO 1 DISKW 'fn ft fm' 0 (VAR REC'                                    
+       sqlcode=rc                                                               
+       if rc/=0 then sqlerrm='EXECIO ERROR ON UNLOAD FILE'                      
+     end                                                                        
+     else if sqlcode=100 then do                                                
+       sqlcode=0                                                                
+       signal error                                                             
+     end                                                                        
+   end                                                                          
+error:                                                                          
+  'FINIS 'fn ft fm                                                              
+   ret=sqlcode                                                                  
+   if ret/=0 & disc()=1 then say 'SQLCODE='sqlcode' SQLERRM=' sqlerrm           
+  'RXSQL PURGE READ'                                                            
+  'DOS RESTORE'                                                                 
+exit ret                                                                        
+open:                                                                           
+  'RXSQL PREP READ SELECT * FROM 'table where                                   
+   if sqlcode/=0 then signal error                                              
+  'RXSQL OPEN READ'                                                             
+   if sqlcode/=0 then signal error                                              
+return                                                                          

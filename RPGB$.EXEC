@@ -1,0 +1,28 @@
+/* RPGB$ - Batch RPG Compile                               08/20/89  *          
+*                                                                    *          
+*  This exec is submitted by RPGB to VMBATCH to compile and/or link  *          
+*  an RPG program.                                                   *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+   'SETMSG ON'                                                                  
+    address COMMAND 'CP LINK ISPVM 192 192 RR'                                  
+   'ACCESS 192 G/A'                                                             
+   'EXECIO 1 DISKR INPUT1 DATA A (VAR LINE'                                     
+    parse var line pgm .                                                        
+    do until rc>0                                                               
+     'EXECIO 1 DISKR INPUT1 DATA A (VAR CMDS'                                   
+      if rc=0 then interpret cmds                                               
+    end                                                                         
+   'FINIS INPUT1 DATA A'                                                        
+    cmd='RPGC 'line                                                             
+    interpret cmd                                                               
+   'GLOBALV GET USERID'                                                         
+    address COMMAND 'CP LINK 'userid' 400 4FF MR MULTI'                         
+   'ACCESS 4FF J'                                                               
+   'COPY 'pgm' LISTING A = = J (REP'                                            
+   'COPY 'pgm' TEXT    A = = J (REP'                                            
+   'TELL 'userid pgm' BATCH COMPILE IS COMPLETE'                                
+exit                                                                            

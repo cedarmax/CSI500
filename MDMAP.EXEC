@@ -1,0 +1,97 @@
+/**MDMAP  - List MDISK entries by volume and extent;         03/27/90*          
+*           show overlaps and available blocks.                      *          
+*           If any overlaps exist, return code is -1.                *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1*  12/29/90 JTM001                                                 *          
+*    Changed to use XSORT instead of CMS SORT.                       *          
+*********************************************************************/          
+   retcode=0                                                                    
+   size=360036                                                                  
+  'ERASE MDMAP LIST A'                                                          
+  'GETFMADR'                                                                    
+   pull line                                                                    
+   parse var line . ml adr                                                      
+   address COMMAND 'CP LINK DIRMAINT 195 'adr' RR RDIRMAIN'                     
+  'ACC 'adr ml                                                                  
+  'ID (STACK'                                                                   
+   pull . . node .                                                              
+  'EXECIO * DISKR USER DIRECT 'ml' (FINIS'                                      
+  'RELEASE 'ml' (DET'                                                           
+   recfm='F 40'                                                                 
+   do i=1 to queued()                                                           
+     pull line                                                                  
+     parse var line user id . start blocks vol .                                
+     if user='USER' then do                                                     
+       userid=left(id,8)                                                        
+     end                                                                        
+     if user='MDISK' then do                                                    
+       if userid='DIRMAINT' & left(id,2)='12' then iterate i                    
+       if userid='MAINT'    & left(id,2)='12' then iterate i                    
+       if userid='SYSDUMP1' & left(id,2)='12' then iterate i                    
+       if left(vol,6)='CEPACK' then iterate i                                   
+       if left(vol,5)='OPTPK' then iterate i                                    
+       vol=left(vol,8)                                                          
+       start=right(start,8,'0')                                                 
+       blocks=right(blocks,8)                                                   
+       line=vol start blocks userid strip(id,'B')                               
+       call write                                                               
+     end                                                                        
+   end                                                                          
+  'FINIS MDMAP LIST A'                                                          
+  'XSORT MDMAP LIST A (1 17'                                    /*1*/           
+  'EXECIO * DISKR MDMAP LIST A (FINIS'                          /*1*/           
+  'ERASE MDMAP LIST A'                                                          
+   recfm=''                                                                     
+   line='Minidisk useage at 'node' - 'date()' - 'time()                         
+   call write                                                                   
+   line=''                                                                      
+   call write                                                                   
+   line='VOLUME   USERID   ADR    START   BLOCKS'                               
+   call write                                                                   
+   line='------   ------   ---    -----   ------'                               
+   call write                                                                   
+   oldvol=' '                                                                   
+   do queued()                                                                  
+     pull line                                                                  
+     parse var line vol start blocks userid adr                                 
+     adr=strip(adr,'B')                                                         
+     blocks=strip(blocks,'L','0')                                               
+     if vol/=oldvol & oldvol/=' ' then do                                       
+       avail=size-end                                                           
+       if avail>0 then do                                                       
+         line=left(oldvol,8) '------------' right(end,8) right(avail,8)         
+         call write                                                             
+       end                                                                      
+       line=copies('=',39)                                                      
+       call write                                                               
+     end                                                                        
+     if vol/=oldvol then end=-1                                                 
+     oldvol=vol                                                                 
+     msg=''                                                                     
+     if end>start then do                                                       
+       msg='OVERLAP'                                                            
+       retcode=-1                                                               
+     end                                                                        
+     if end<start & end/=-1 then do                                             
+       avail=start-end                                                          
+       line=left(vol,8) '------------' right(end,8) right(avail,8)              
+       call write                                                               
+     end                                                                        
+     end=start+blocks                                                           
+     line=left(vol,8) left(userid,8) adr right(start,8) right(blocks,8) msg     
+     call write                                                                 
+   end                                                                          
+   avail=size-end                                                               
+   if avail>0 then do                                                           
+     line=left(oldvol,8) '------------' right(end,8) right(avail,8)             
+     call write                                                                 
+   end                                                                          
+   line=copies('=',39)                                                          
+   call write                                                                   
+   if disc()=0 then 'BROWSE MDMAP LIST A'                                       
+   exit retcode                                                                 
+write:                                                                          
+  'EXECIO 1 DISKW MDMAP LIST A 0 'recfm' (VAR LINE'                             
+return                                                                          

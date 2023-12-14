@@ -1,0 +1,85 @@
+/* SCANRPG - List FT array entries for all RPG programs     10/19/89 *          
+*            on a minidisk, to show SQL table names,                 *          
+*            with WHERE and ORDER BY clauses for each.               *          
+*                                                                    *          
+*  Use SCANRPG to read all RPG source files on a minidisk and        *          
+*  create a list of all SQL table names found for each program,      *          
+*  including WHERE and ORDER BY clauses.                             *          
+*                                                                    *          
+*               SCANRPG vaddr                                        *          
+*                       |_ Virtual address of disk on which the      *          
+*                          RPG source files are located (510, 520,   *          
+*                          291, etc.), UNLESS it is the A disk.      *          
+*                          To scan files on the A disk, enter "A"    *          
+*                          instead of the virtual address.           *          
+*                                                                    *          
+*  The result will be written to SCANRPG LIST A.                     *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg disk .                                                                      
+parse source . . $ .                                                            
+address COMMAND                                                                 
+   'SET DOS OFF'                                                                
+   'EXEC SETMSG  ON'                                                            
+    if disk /='A' then do                                                       
+     'ACCESS 'disk' E/A'                                                        
+      m='E'                                                                     
+    end                                                                         
+    else m='A'                                                                  
+    if rc /= 0 then do                                                          
+      say 'ERROR ON ACCESS FOR DISK 'disk' - '$' TERMINATED'                    
+      signal end                                                                
+    end                                                                         
+   'LISTFILE * RPGII 'm' (STACK'                                                
+    if queued()=0 then do                                                       
+      say 'NO RPGII FILES ON DISK 'disk' - '$' TERMINATED'                      
+      signal end                                                                
+    end                                                                         
+   'ERASE SCANRPG LIST A'                                                       
+    array=left('**',80)                                                         
+    blank=copies(' ',80)                                                        
+    count=queued()                                                              
+    do count                                                                    
+      parse pull name .                                                         
+      eof=0                                                                     
+      line=left(name,80,'=')                                                    
+      call write                                                                
+readrpg:                                                                        
+      do i=1 until eof>0                                                        
+       'EXECIO 1 DISKR 'name' RPGII 'm' (VAR LINE'                              
+        eof=rc                                                                  
+        if rc=0 then do                                                         
+          if line=array then do j=1 to 6                                        
+           'EXECIO 1 DISKR 'name' RPGII 'm' (VAR LINE'                          
+            eof=rc                                                              
+            if rc=0 then do                                                     
+              if j=1 then do                                                    
+                if pos('CSI.',line)=0 then iterate i                            
+                else do                                                         
+                  line=strip(line)                                              
+                  line=left(line,79,'-')                                        
+                  line=right(line,80)                                           
+                  call write                                                    
+                end                                                             
+              end                                                               
+              else if line/=blank then do                                       
+                line=strip(line)                                                
+                line=left(line,78)                                              
+                line=right(line,80)                                             
+                call write                                                      
+              end                                                               
+            end                                                                 
+          end                                                                   
+        end                                                                     
+      end                                                                       
+    end                                                                         
+end:                                                                            
+   'FINIS SCANRPG LIST A'                                                       
+exit                                                                            
+write:                                                                          
+    arg                                                                         
+   'EXECIO 1 DISKW SCANRPG LIST A 0 F 80 (VAR LINE'                             
+return                                                                          

@@ -1,0 +1,14 @@
+/**F80 - Convert a CMS file to fixed-length records with   10/07/89  *          
+*        a length of 80.                                             *          
+*                                                                    *          
+*          F80 fname                                                 *          
+*               |                                                    *          
+*               |_CMS file identifier (Name, Type, Mode)             *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg file                                                                        
+  'COPY 'file' = = = (RECFM F LRECL 80 OLDDATE'                                 
+exit                                                                            

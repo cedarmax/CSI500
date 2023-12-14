@@ -1,0 +1,69 @@
+/* SQLDEL - Delete all or selected rows from an SQL table. 11/02/89  *          
+*                                                                    *          
+*  Use SQLDEL to delete rows from an SQL table, as follows:          *          
+*                                                                    *          
+*           SQLDEL table (options                                    *          
+*                  |      |                                          *          
+*                  |      |_ If NOUNLOAD is specified as an          *          
+*                  |         option, the rows will not be saved      *          
+*                  |         before deleting.  Otherwise, the        *          
+*                  |         UNLOAD exec will be used to save        *          
+*                  |         the rows to be deleted.                 *          
+*                  |                                                 *          
+*                  |         If FILE is specified, the word          *          
+*                  |         following FILE will be used as the name *          
+*                  |         of the UNLOAD file instead of the       *          
+*                  |         default file name.                      *          
+*                  |                                                 *          
+*                  |         If COMMIT is specified, an SQL COMMIT   *          
+*                  |         WORK will be issued.  Otherwise, the    *          
+*                  |         SQL Logical Unit of Work will remain    *          
+*                  |         open.                                   *          
+*                  |                                                 *          
+*                  |_Name of SQL table.  This can be followed by an  *          
+*                    SQL WHERE clause in order to selectively delete *          
+*                    rows from the table.  An ORDER BY clause can    *          
+*                    also be specified to control the order of the   *          
+*                    unload file.  If NOUNLOAD is specified, ORDER BY*          
+*                    will have no effect.                            *          
+*                                                                    *          
+*  CAUTION: Each UNLOAD file will replace the previous UNLOAD file   *          
+*           with the same file name.  Therefore, if the calling      *          
+*           program can delete with more than one select condition   *          
+*           (for example, deleting by campus), then only the latest  *          
+*           set of deleted records would be saved.  This can be      *          
+*           avoided by specifying a unique UNLOAD file name for each *          
+*           delete condition.  This can be done with the FILE option *          
+*           described above.                                         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+***11/05/89 Rewritten to use RXSQL PREP and CALL in order to avoid   *          
+*           automatic COMMIT or ROLLBACK.                            *          
+*                                                                    *          
+*********************************************************************/          
+arg table                                                                       
+   parse var table table '(' option                                             
+   option=strip(option,T,')')                                                   
+   pd=pos('.',table)                                                            
+   if pd=0 then table='CSI.'table                                               
+   word=find(option,'FILE')                                                     
+   if word/=0 then fname=word(option,word+1)                                    
+   else fname=''                                                                
+   if find(option,'NOUNLOAD')=0 then do                                         
+    'UNLOAD 'table' ('fname                                                     
+     sqlcode=rc                                                                 
+     if sqlcode/=0 then signal error                                            
+   end                                                                          
+  'DOS OFF'                                                                     
+  'RXSQL PREP DELETE DELETE FROM 'table                                         
+   if sqlcode/=0 then signal error                                              
+  'RXSQL CALL DELETE'                                                           
+   if sqlcode=100 then sqlcode=0                                                
+error:                                                                          
+   if sqlcode=0 & find(option,'COMMIT')/=0 then 'RXSQL COMMIT WORK'             
+   ret=sqlcode                                                                  
+   if ret/=0 & disc()=1 then say 'SQLCODE='sqlcode' SQLERRM=' sqlerrm           
+  'RXSQL PURGE DELETE'                                                          
+  'DOS RESTORE'                                                                 
+exit ret                                                                        

@@ -1,0 +1,100 @@
+/* PANEL - Display ISPF panel                              11/05/89  *          
+*                                                                    *          
+*  Use PANEL to display an ISPF panel from a command exec,           *          
+*  as follows:                                                       *          
+*                                                                    *          
+*                PANEL ABC "xxx='YES'; yyy; zzz=25"                  *          
+*                      |     |_DEFINITION OF PANEL VARIABLES         *          
+*                      |_NAME OF PANEL                               *          
+*                                                                    *          
+*  Where "xxx", "yyy", and "zzz" represent the names of variables    *          
+*  defined on the panel.  The values of these variables can also     *          
+*  be specified as shown above for variables "xxx" and "zzz".        *          
+*  Values can be specified with single quotes as shown above for     *          
+*  variable "xxx", or without single quotes as shown above for       *          
+*  variable "zzz".                                                   *          
+*                                                                    *          
+*  When values are specified, they must be absolute; they cannot     *          
+*  be specified as the value of a current variable.  For example,    *          
+*  if you wanted ISPF variable ABC on a panel to be set to the value *          
+*  of REXX variable "def", you could not code this as "ABC=def".     *          
+*  However, you could build a string which gets the absolute values  *          
+*  from REXX variables and then use this string as the second        *          
+*  argument with the PANEL command.  This is illustrated below:      *          
+*                                                                    *          
+*        varg='ABC='def                                              *          
+*        PANEL PNAME varg                                            *          
+*                                                                    *          
+*  This assumes that "def" has been given a value.  Then, this value *          
+*  will be displayed as the initial value of ISPF variable ABC on    *          
+*  panel PNAME.                                                      *          
+*                                                                    *          
+*  If you do not need to specify a value for a variable, you can     *          
+*  simply include the name of the variable without a value, as shown *          
+*  above for variable "yyy".                                         *          
+*                                                                    *          
+*  Variables (with or without values) must be separated by commas    *          
+*  or semi-colons.  The entire string must be enclosed in quotation  *          
+*  marks, as shown in the above example.  Either single or double    *          
+*  quotes can be used.  However, if single quotes are used within    *          
+*  the string, double quotes must be used to enclose the entire      *          
+*  string.                                                           *          
+*                                                                    *          
+*  The following variables must be defined in the panel:             *          
+*                                                                    *          
+*                &PFKEY=.PFKEY                                       *          
+*               &INSFIL=<name of instruction file>                   *          
+*                                                                    *          
+* NOTE: All panels must include a long message field beginning in    *          
+*       Column 2 of the last line on the panel, and extending        *          
+*       through Column 79.                                           *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 11/05/89 Eliminated requirement for user to press F3 twice in    *          
+*            order to terminate.  This should not be necessary now   *          
+*            because user always expects to see SUBMIT panel before  *          
+*            a batch job is started.  Also changed standard function *          
+*            key message to not mention batch job because it does    *          
+*            not always apply.                                       *          
+*                                                                    *          
+*********************************************************************/          
+   parse arg pan varval                                                         
+   varval=strip(varval,L,'(')                                                   
+   varval=strip(varval,T,')')                                                   
+/* REPLACE COMMAS AND SEMI-COLONS WITH SEPARATOR CHARACTER */                   
+   tabin=',;'                                                                   
+   varval=translate(varval,,tabin,'º')                                          
+/* MAKE STRING vint WITH VARIABLES AND VALUES; INTERPRET vint TO SET            
+   VALUES.  MAKE STRING vars WITH ALL VARIABLE NAMES FOR USE BY VPUT            
+   AFTER DISPLAY FOR RETURNING VALUES TO CALLING EXEC.              */          
+   vars='';vint=''                                                              
+ do until varval =''                                                            
+   parse value varval with v1 'º' varval                                        
+   parse value v1 with var '=' val                                              
+    if val='' then var=v1                                                       
+    else if vint='' then vint=v1; else vint=vint||';'||v1                       
+    var=strip(var,T,'=')                                                        
+    if vars='' then vars=var; else vars=vars||' '||var                          
+ end                                                                            
+   interpret vint                                                               
+redisplay:                                                                      
+do forever                                                                      
+   address ISPEXEC DISPLAY PANEL'('pan') MSG(CSIA030)'                          
+   if pfkey='PF01' then do                                                      
+      BROWSE insfil HELP                                                        
+      signal redisplay                                                          
+      end                                                                       
+   if pfkey='PF02' then do                                                      
+      BROWSE insfil HELP                                                        
+      signal redisplay                                                          
+      end                                                                       
+   if pfkey='PF03' then exit 1                                                  
+   if pfkey='    ' then do                                                      
+      code=0                                                                    
+      signal return                                                             
+      end                                                                       
+end                                                                             
+return:                                                                         
+   address ISPEXEC VPUT '('vars')' SHARED                                       
+exit code                                                                       

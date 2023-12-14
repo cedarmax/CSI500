@@ -1,0 +1,67 @@
+/* COMMAND CODE: _____ PROGRAMMER: ____________________ DATE: 00/00/00          
+                                                                                
+   The following execs and functions can be used in a batch exec.               
+   Refer to the individual instructions for each one for detailed               
+   information.                                                                 
+                                                                                
+   EXIST  function tests for existence of a file.                               
+   FILE  exec defines CMS file for RPG program.                                 
+   RUN    exec starts an RPG program.                                           
+   WRITE1 exec creates and writes one record to file INPUTn DATA A.             
+   WRITEM exec writes one record to extend file INPUTn DATA A.                  
+   U   function gets values of RPG U-indicators.                                
+                                                                                
+ 1. Fill in the blanks in the first line of the model.                          
+                                                                                
+ 2. When adding lines to the model, don't use Columns 1-3; these                
+    columns are reserved for a slash-asterisk to convert the line               
+    to a comment.                                                               
+                                                                                
+ 3. Don't change or add any line that starts in Column 1. These                 
+    lines are the "boilerplate" of the model.                                   
+                                                                                
+ 4. Code all REXX commands and variables in lower-case letters;                 
+    don't user lower-case letters for anything else.                            
+                                                                                
+ 5. Enclose all CMS commands and their arguments in single quotes               
+    as shown in the sample below.  If a REXX variable is needed within          
+    a CMS command line, it cannot be within the quotes.  In this case,          
+    the command line would contain two or more quoted strings.                  
+    If single quotes are needed within a quoted string, enclose the             
+    string in double quotes as shown in the sample below.                       
+                                                                                
+ 6. Describe all revisions between the lines of asterisks below,                
+    using the format shown.  Type the description in upper- and lower-          
+    case letters and put your name at the end of the description.               
+                                                                                
+ 7. When any line is added, put revision number in Col. 70, as shown            
+    in the following example:                                                   
+                                                                                
+    if xyz<>5 then signal abc; else signal def                   /*1*/          
+                                                                                
+ 8. To change a line, convert it to a comment and add a new line.               
+    If the example line shown above needed to be changed, it should             
+    first be commented as follows:                                              
+                                                                                
+/*  if xyz<>5 then signal abc; else signal def                  *1*2*/          
+                                                                                
+    and the change should be entered on the next line:                          
+                                                                                
+    if xyz<>5 then signal abc; else signal exit                  /*2*/          
+                                                                                
+ 9. Delete all instruction lines from the model that are between the            
+    first line (the line with command code, programmer name, and date)          
+    and the line of asterisks below.                                            
+                                                                                
+**********************************************************************          
+*1*  00/00/00                                                                   
+*********************************************************************/          
+signal on error                                                                 
+  'FILE ABCIN INPUT1 DATA A'                                                    
+  'RENAME INPUT2 DATA A ABC01 LIMIT1 A'                                         
+   if u(1)=1 then 'RUN ABC01'                                                   
+  'SETON U3 U4'                                                                 
+  'SETOF U1'                                                                    
+  'RUN ABC02'                                                                   
+error:                                                                          
+exit rc                                                                         

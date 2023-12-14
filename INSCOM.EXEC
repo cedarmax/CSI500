@@ -1,0 +1,177 @@
+/* INSCOM - Install command exec programs on a minidisk     09/02/89 *          
+*                                                                    *          
+*  Use INSCOM to execute RPG programs called in command execs to     *          
+*  create access modules, SQLSTMT files, and SQLDA files, as follows:*          
+*                                                                    *          
+*                INSCOM vaddr code1 code2 . . . . . . . . . .        *          
+*                       |     |_Command code(s) to be installed.     *          
+*                       |       If not specified, all command        *          
+*                       |       codes will be included.              *          
+*                       |_ Virtual address of disk on which the      *          
+*                          execs to be processed are located         *          
+*                          (510, 520, 291, etc.).                    *          
+*                                                                    *          
+* 09/02/89 Added browse of INSCOM LIST after install is complete.    *          
+*          This is executed only if virtual machine is not           *          
+*          disconnected.                                             *          
+*                                                                    *          
+*1* 01/01/90 Don't access disk as A because this releases access to  *          
+*            191 disk, which contains files (ARISRMBT MODULE) that   *          
+*            are apparently needed with VM Rel. 6.  Instead, use     *          
+*            GETFMADDR to get an available file mode letter.         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg disk cmds                                                                   
+parse source . . $ .                                                            
+address COMMAND                                                                 
+   'SET DOS OFF'                                                                
+   'EXEC SETMSG  ON'                                                            
+/* See if specified disk is already access R/W; if so, use same mode */         
+    ml=''                                                       /*1*/           
+   'SADT *'                                                     /*1*/           
+    do queued()                                                 /*1*/           
+      parse pull . . . addr md . . . . rw                       /*1*/           
+      if addr=disk & rw='R/W' then ml=md                        /*1*/           
+    end                                                         /*1*/           
+/* Get first available file mode letter if needed  */           /*1*/           
+    if ml='' then do                                            /*1*/           
+     'GETFMADR'                                                 /*1*/           
+      pull . ml .                                               /*1*/           
+      newmode='Y'                                               /*1*/           
+    end                                                         /*1*/           
+    if newmode='Y' then 'ACCESS 'disk ml                        /*1*/           
+    if rc /= 0 then do                                                          
+      say 'ERROR ON ACCESS FOR DISK 'disk' - '$' TERMINATED'                    
+      signal end                                                                
+    end                                                                         
+   'ERASE CMS EXEC A'                                                           
+    parse value cmds with cmds '(' option                                       
+    if cmds='' then do                                                          
+      cmds='*'                                                                  
+      say 'PROGRAMS TO BE INSTALLED:'                                           
+    end                                                                         
+    else parms='YES'                                                            
+    if left(option,1)='S' then parms='YES'                                      
+/* If parms=YES list will not be displayed and user will not be                 
+   prompted to proceed.                                          */             
+    do until cmds=''                                                            
+      parse upper var cmds cmd cmds                                             
+     'LISTFILE 'cmd' EXEC 'ml' (STACK'                          /*1*/           
+    end                                                                         
+    if queued()=0 then do                                                       
+      say 'NO EXECS ON DISK 'disk' - '$' TERMINATED'                            
+      signal end                                                                
+    end                                                                         
+    qty = 0                                                                     
+   'ERASE '$' LIST A'                                                           
+    line='/* INSCOM 'disk cmds' */'                                             
+   'EXECIO 1 DISKW CMS EXEC A (VAR LINE'                                        
+    todo=queued()                                                               
+    do i=1 to todo                                                              
+      parse pull fnm .                                                          
+      parse var fnm with 1 fnm 6 rest                                           
+      if rest>' ' then fnm=''                                                   
+      else if right(fnm,1)='$' then fnm=''                                      
+      if fnm/='' & parms/='YES' then say 'FILE='fnm                             
+      eof=0                                                                     
+      if fnm/='' then do until eof>0                                            
+       'EXECIO 1 DISKR 'fnm' EXEC 'ml' (VAR TEXTREC'            /*1*/           
+        eof=rc                                                                  
+        if rc=0 then do                                                         
+          parse var textrec action name .                                       
+          action=strip(action,'B',"'")                  /*07/17/89*/            
+          name=strip(name,'B',"'")                      /*07/17/89*/            
+          if action='FILE' then do                                              
+            L1="'FILE "name" DUMMY'"                                            
+            call write 1                                                        
+          end                                                                   
+          if action/='RUNDOS' & find('RUNDOS',textrec)/=0 then do               
+            L1=" msg='"textrec"'"                                               
+            L2="'EXECIO 1 DISKW "$" LIST "ml" (VAR MSG'"        /*1*/           
+            call write 2                                                        
+          end                                                                   
+          if action='RUNDOS' then do                                            
+            pgm=name                                                            
+            pan=0                                                               
+           'STATE 'pgm' DOSLIB 'ml                              /*1*/           
+            if rc /= 0 then do                                                  
+              line=pgm 'DOSLIB NOT FOUND'                                       
+             'EXECIO 1 DISKW '$' LIST 'ml' (VAR LINE'           /*1*/           
+            end                                                                 
+/* FIND SQL PROGRAMS BY LOOKING FOR 'ACCESS MODULE' IN DOSLIB  */               
+            else do while pan=0                                                 
+             'EXECIO 1 DISKR 'pgm' DOSLIB 'ml' (VAR TEXTREC'    /*1*/           
+              if rc=0 then do                                                   
+                pan=pos('ACCESS MODULE',textrec)                                
+                if pan=0 then pan=pos('XXX.12345678',textrec)                   
+              end                                                               
+              else pan=-1                                                       
+            end                                                                 
+            if pan>0 then do                                                    
+              qty=qty+1                                                         
+L1="'ERASE "pgm" SQLSTMT *'"                                    /*1*/           
+L2=" msg='RUN "pgm"==============================================='"            
+L3="'EXECIO 1 DISKW "$" LIST "ml" (VAR MSG'"                    /*1*/           
+L4="'ERASE SQLMGR ERROR A'"                                                     
+L5="'SET DOS ON'"                                                               
+L6="'ASSGN SYS000 IGN'"                                                         
+L7="'RUNDOS "pgm" A'"                                                           
+L8="'STATE SQLMGR ERROR A'"                                                     
+L9=" if rc/=0 then msg='*****************NO SQLMGR ERROR FILE FOR "pgm"'"       
+L10=" else do"                                                                  
+L11="  'EXECIO 1 DISKR SQLMGR ERROR A 2 (VAR LINE'"                             
+L12="   if pos('ACCESS MODULE',line)/=0 then do"                                
+          call write 12                                                         
+          if userid()='CSI' then do                                             
+L1="    'SET DOS OFF'"                                                          
+/* Revoke of RUN authority is not done because the access module has            
+   just been dropped and created by the program.                   */           
+L2="    'RXSQLEX GRANT RUN ON CSI."pgm" TO PUBLIC'"                             
+L3="     if rc/=0 then gnt='NO ACCESS MODULE FOR===============> "pgm"'"        
+L4="     else gnt='SQL RUN AUTHORITY GRANTED FOR "pgm"'"                        
+L5="    'EXECIO 1 DISKW "$" LIST "ml" (VAR GNT'"                 /*1*/          
+          call write 5                                                          
+          end                                                                   
+L1="     msg='"pgm" COMPLETED NORMALLY'"                                        
+L2="   end"                                                                     
+L3="   else do"                                                                 
+L4="    'FINIS "$" LIST "ml"'"                                  /*1*/           
+L5="    'COPYFILE SQLMGR ERROR A "$" LIST "ml" (APPEND'"        /*1*/           
+L6="     msg='============================END OF SQLMGR FILE FOR "pgm"'"        
+L7="   end"                                                                     
+L8=" end"                                                                       
+L9="'EXECIO 1 DISKW "$" LIST "ml" (VAR MSG'"                    /*1*/           
+            call write 9                                                        
+          if parms/='YES' then say '     'pgm                                   
+          end                                                                   
+        end                                                                     
+      end                                                                       
+    end                                                                         
+  end                                                                           
+    line="exit"                                                                 
+   'EXECIO 1 DISKW CMS EXEC A (VAR LINE'                                        
+   'FINIS CMS EXEC A'                                                           
+    if qty = 0 then say 'NO RPG PROGRAMS FOUND ON DISK 'disk                    
+    else do                                                                     
+      if parms/='YES' then do                                                   
+        say qty 'PROGRAMS ON DISK 'disk' WILL BE INSTALLED.'                    
+        say 'ENTER "YES" TO PROCEED.'                                           
+        pull answer                                                             
+        if answer/='YES' then signal end                                        
+      end                                                                       
+   'EXEC CMS'                                                                   
+   'EXECIO * CP (STRING QUERY CONSOLE'                                          
+    pull cons                                                                   
+    if pos('DISC',cons)=0 then 'BROWSE '$' LIST 'ml             /*1*/           
+   'EXEC MTSTACK'                                                               
+    end                                                                         
+end:                                                                            
+    if newmode='Y' then 'RELEASE 'ml                            /*1*/           
+exit                                                                            
+write:                                                                          
+    arg n                                                                       
+   'EXECIO 'n' DISKW CMS EXEC A (STEM L'                                        
+return                                                                          

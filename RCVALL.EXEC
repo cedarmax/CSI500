@@ -1,0 +1,50 @@
+/**RCVALL - Receive files sent by SENDCSI or SENDUSER      02/27/89  *          
+*                                                                    *          
+*  Use RCVALL to receive all reader files to a specified minidisk,   *          
+*  as follows:                                                       *          
+*                                                                    *          
+*            RCVALL 510                                              *          
+*                   |_Address of minidisk to which files are copied. *          
+*                                                                    *          
+*  This facilitates receiving files sent by SENDCSI or SENDUSER.     *          
+*                                                                    *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg disk .                                                                      
+   parse source . .  $ .     /* name of this EXEC */                            
+say $                                                                           
+   if disk='' then do                                                           
+     say 'DISK VIRTUAL ADDRESS MUST BE SPECIFIED - '$' TERMINATED'              
+     signal end                                                                 
+   end                                                                          
+  'ACCESS 'disk' A'                                                             
+   if rc /= 0 then do                                                           
+     say 'ACCESS TO DISK 'disk' FAILED - '$' TERMINATED'                        
+     signal end                                                                 
+     exit                                                                       
+   end                                                                          
+  'Q DISK A (STACK'                                                             
+   pull trash                                                                   
+   pull . . . access .                                                          
+     if access /= 'R/W' then do                                                 
+       say 'ACCESS TO DISK 'disk' IS NOT R/W - '$' TERMINATED'                  
+       signal end                                                               
+     end                                                                        
+   qty=0                                                                        
+   rc=0                                                                         
+   do while rc=0                                                                
+    'RECEIVE = (NOPROMPT REPLACE NEWDATE STACK'                                 
+     if rc=0 then do                                                            
+       qty=qty+1                                                                
+       parse pull . fn ft .                                                     
+       if ft='SQLSTMT' then 'ERASE 'fn ft' A'                                   
+     end                                                                        
+   end                                                                          
+   if qty=0 then say 'NO FILES RECEIVED'                                        
+   else say qty 'FILES RECEIVED AND INSTALLED ON DISK 'disk                     
+end:                                                                            
+  'ACCESS 191 A'                                                                
+exit                                                                            

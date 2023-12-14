@@ -1,0 +1,152 @@
+/**CLUSTER - Re-cluster CSI SQL tables.                    12/19/89   *         
+*                                                                     *         
+*  Use CLUSTER to change the clustering properties of SQL data        *         
+*  tables that are used by CSI software.  This done by applying the   *         
+*  procedure described in SH09-8017 under "Re-clustering a Table"     *         
+*  in Chapter 6.  Call as follows:                                    *         
+*                                                                     *         
+*     CLUSTER names (options                                          *         
+*             |      |                                                *         
+*             |      |_Options, as follows:                           *         
+*             |                                                       *         
+*             |        1. Virtual address of minidisk that is to      *         
+*             |           be used for unload file.  If no address     *         
+*             |           is specified, tables will be unloaded to    *         
+*             |           tape.                                       *         
+*             |                                                       *         
+*             |_Name(s) of tables to be re-clustered.  In no names    *         
+*               specified, all CSI tables will be included.           *         
+*                                                                     *         
+*  Re-clustering is necessary to maintain optimum performance.        *         
+*  One step in this process is identifying the "clustering index",    *         
+*  which is the first index that was created.  Each clustering index  *         
+*  is identified by a value of "F" or "W" in the CLUSTER column of    *         
+*  SYSTEM.SYSINDEXES.  For tables that do not have a clustering index,*         
+*  an error message will be displayed, but no re-clustering is done.  *         
+*                                                                     *         
+*  If a table does not have a clustering index, it must be created    *         
+*  before it can be re-clustered with CLUSTER.  For CSI data tables   *         
+*  the clustering index should be a unique index on the primary key   *         
+*  and should be named tableIND0.  If such an index exists, but is    *         
+*  not coded "F" or "W" under CLUSTER in SYSTEM.SYSINDEXES, the       *         
+*  CLUSTER code in SYSTEM.SYSINDEXES should be changed to "W".  If    *         
+*  the primary key index does not exist, it should be created with    *         
+*  CRINDEX.                                                           *         
+*                                                                     *         
+*  NOTE: Empty tables (no rows) will not be re-clustered.             *         
+*                                                                     *         
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+***********************************************************************         
+*                                                                     *         
+**********************************************************************/         
+parse upper arg names '(' vaddr                                                 
+   if names='' then do                                                          
+     say 'CAUTION; ALL TABLES WILL BE RE-CLUSTERED'                             
+     say 'ENTER "YES" TO PROCEED'                                               
+     pull answer                                                                
+     if answer/='YES' then exit                                                 
+   end                                                                          
+   sqlcode=0                                                                    
+  'DOS OFF'                                                                     
+  'SET CMSTYPE HT'                                                              
+   ast=copies('*',80)                                                           
+   dash=copies('-',80)                                                          
+   rc=45                                                                        
+   if vaddr='' then do                                                          
+     n=''                                                                       
+     do i=0 to 9 while rc/=0                                                    
+      'CP QUERY VIRTUAL 18'i                                                    
+       if rc=0 then n=i                                                         
+     end                                                                        
+     if n='' then do                                                            
+      'SET CMSTYPE RT'                                                          
+       say ast                                                                  
+       say '*'center('TAPE DEVICE IS NOT AVAILABLE',78)'*'                      
+      say '*'center('ATTACH TAPE TO 'userid()' AND REPEAT CLUSTER',78)'*'       
+       say ast                                                                  
+      'SET CMSTYPE HT'                                                          
+       rc=28                                                                    
+       signal error                                                             
+     end                                                                        
+     signal on error                                                            
+    'FILEDEF SAVE TAP'n' (RECFM VBS BLOCK 32760'                                
+   end                                                                          
+   else do                                                                      
+     signal on error                                                            
+     mode='U'                                                                   
+    'SADT *'                                                                    
+     do queued()                                                                
+       parse pull . . . addr md . . . . rw                                      
+         if addr=vaddr & rw/='R/W' then do                                      
+          'SET CMSTYPE RT'                                                      
+           say 'DISK 'vaddr' IS NOT ACCESSED R/W'                               
+          'MTSTACK'                                                             
+           exit                                                                 
+         end                                                                    
+         if addr=vaddr then mode=md                                             
+     end                                                                        
+    'ACCESS 'vaddr mode                                                         
+    'FILEDEF SAVE DISK CLUSTER UNLOAD 'mode'4 (RECFM VBS BLOCK 2048'            
+   end                                                                          
+  'FILEDEF SYSIN TERMINAL'                                                      
+  'FILEDEF SYSPRINT DISK CLUSTEMP LIST A (RECFM FB LRECL 121'                   
+   s1="SELECT TNAME FROM SYSTEM.SYSCATALOG WHERE CREATOR='CSI'"                 
+   s2="AND ROWCOUNT>0 ORDER BY TNAME"                                           
+  'RXSQL PREP READCAT 's1 s2                                                    
+  'RXSQL OPEN READCAT'                                                          
+   s1="SELECT CLUSTER FROM SYSTEM.SYSINDEXES WHERE CREATOR='CSI'"               
+   qty=0                                                                        
+   signal off error                                                             
+  'ERASE CLUSTEMP LIST A'                                                       
+/*'ERASE CLUSTER LIST A'   */                                                   
+   if names='' then do while sqlcode=0                                          
+    'RXSQL FETCH READCAT INTO TNAME'                                            
+     if sqlcode=0 then qty=qty+1                                                
+     t.qty=tname                                                                
+   end                                                                          
+   else do until names=''                                                       
+     qty=qty+1                                                                  
+     parse var names t.qty names                                                
+   end                                                                          
+   do i=1 to qty                                                                
+     tname=t.i                                                                  
+     if i>1 then 'RXSQL PURGE READINX'                                          
+     s2="AND (CLUSTER='F' OR CLUSTER='W') AND TNAME='"tname"'"                  
+    'RXSQL PREP READINX 's1 s2                                                  
+    'RXSQL OPEN READINX'                                                        
+    'RXSQL FETCH READINX INTO CLUSTER'                                          
+     if sqlcode/=0 then do                                                      
+       line= 'NO CLUSTERING INDEX FOR CSI.'tname                                
+      'EXECIO 1 DISKW CLUSTER LIST A (VAR LINE'                                 
+      'EXECIO 1 DISKW CLUSTER LIST A (VAR AST FINIS'                            
+     end                                                                        
+     else do                                                                    
+       if cluster='W' then do                                                   
+         if vaddr='' then 'TAPE REW (TAP'n                                      
+         queue 'UNLOAD TABLE (CSI.'tname') OUTFILE(SAVE);'                      
+         queue 'EXIT;'                                                          
+        'SQLDBSU'                                                               
+         unloadrc=rc                                                            
+        'COPY CLUSTEMP LIST A CLUSTER LIST A (APPEND'                           
+        'EXECIO 1 DISKW CLUSTER LIST A (VAR DASH FINIS'                         
+         if unloadrc=0 then do                                                  
+           if vaddr='' then 'TAPE REW (TAP'n                                    
+           queue 'RELOAD TABLE (CSI.'tname') PURGE INFILE(SAVE);'               
+           queue 'EXIT;'                                                        
+          'SQLDBSU'                                                             
+          'COPY CLUSTEMP LIST A CLUSTER LIST A (APPEND'                         
+         end                                                                    
+      'EXECIO 1 DISKW CLUSTER LIST A (VAR AST FINIS'                            
+       end                                                                      
+     end                                                                        
+   end                                                                          
+stop:                                                                           
+   sqlcode=0                                                                    
+error:                                                                          
+   ret=sqlcode                                                                  
+   if ret/=0 then say 'SQLCODE='sqlcode' SQLERRM=' sqlerrm                      
+  'RXSQL PURGE READCAT'                                                         
+  'RXSQL PURGE READINX'                                                         
+  'RXSQL ROLLBACK WORK'                                                         
+  'ERASE CLUSTEMP LIST A'                                                       
+exit ret                                                                        

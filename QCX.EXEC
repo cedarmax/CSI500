@@ -1,0 +1,179 @@
+/* QCX - Transfer files to QC or CSI                       12/04/89  *          
+*                                                                    *          
+*  Use QCX to transfer all files associated with a specified         *          
+*  command code from a programmer minidisk to QC, or from QC         *          
+*  to CSI, as follows:                                               *          
+*                                                                    *          
+*                     QCX code                                       *          
+*                         |_ Command code for which files are to     *          
+*                            be transferred to QC or CSI.            *          
+*                                                                    *          
+*  If you userid is not QC, then the files will be copied to the QC  *          
+*  291 disk.  If your userid is QC, then the files will be copied    *          
+*  from QC's 291 disk to the proper CSI disk.                        *          
+*                                                                               
+*  When copying from QC to CSI, the command code must be in the      *          
+*  access table stored in QC ACCESS.  This access table can be       *          
+*  updated to include all commands that exist in CSI.COMMANDS by     *          
+*  using the ACTAB command.                                          *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+* 07/30/89 Added provision for renaming SQL Access Modules when      *          
+*          programs are transferred to CSI, and for creating PGMUID  *          
+*          files on QC when programs are transferred to QC.          *          
+*          This is done to be compatible with the practice of having *          
+*          multiple access modules, with the creator name equal to   *          
+*          to userid under which the access module was created.      *          
+*          HOWEVER, these instructions are presently inactive        *          
+*          until the matching SQLMGR is in use.                      *          
+*2* 09/23/89 Added SQLTABLE file type to list of files to be copied. *          
+*                                                                    *          
+*3* 12/04/89 Change suffix range from 01-09 to 00-09.                *          
+*                                                                    *          
+*4* 07/15/90 Added MESSAGE to filetypes that are sent.               *          
+*            Deleted DOSLIB from filetypes that are sent.            *          
+*                                                                    *          
+*5* 10/22/90 JTM001                                                  *          
+*            Added M00 to program name for file name of message file.*          
+*                                                                    *          
+*********************************************************************/          
+arg name .                                                                      
+parse source . . $ .                                                            
+    if name='' then do                                                          
+      say 'NO COMMAND CODE SPECIFIED - '$' TERMINATED'                          
+      exit                                                                      
+    end                                                                         
+   'SETMSG OFF'                                                                 
+    if userid() /= 'QC' then do                                                 
+      if userid() = 'CSI' then do                                               
+        say 'DO YOU WANT TO TRANSFER FROM CSI TO QC?'                           
+        pull answer .                                                           
+          if answer /= 'YES' then exit                                          
+        end                                                                     
+     'QUERY QC'                                                                 
+      if rc = 0 then do                                                         
+        say 'QC MACHINE IS ACTIVE - CANNOT TRANSFER FILES NOW'                  
+        exit                                                                    
+      end                                                                       
+      address COMMAND 'CP LINK QC 291 5FF M MULTI'                              
+      if rc /= 0 then do                                                        
+        say 'LINK TO QC 291 FAILED - TRANSFER TERMINATED'                       
+        exit                                                                    
+      end                                                                       
+    end                                                                         
+    else do                                                                     
+/* IF USERID=QC, THEN COPY FILES TO CSI 5xx DISK                     */         
+     'QUERY CSI'                                                                
+      if rc = 0 then do                                                         
+        say 'CSI MACHINE IS ACTIVE - CANNOT TRANSFER FILES NOW'                 
+        exit                                                                    
+      end                                                                       
+      say 'ENTER COMMAND CODE FOR FILES TO BE TRANSFERRED TO CSI:'              
+      pull answer                                                               
+      if answer /= name then do                                                 
+        say 'INVALID COMMAND CODE - '$' TERMINATED'                             
+        exit                                                                    
+      end                                                                       
+     'EXECIO 1 DISKR 'userid()' ACCESS A (FINIS MARGINS 45 4092 VAR TAB'        
+      command = left(name,5)                                                    
+      mdp = pos(command,tab)                                                    
+      if mdp = 0 then do                                                        
+        say name 'IS NOT IN ACCESS TABLE - TRANSFER TERMINATED'                 
+        exit                                                                    
+        end                                                                     
+      mdp = mdp+6                                                               
+      md = substr(tab,mdp,2)                                                    
+      say name 'FILES WILL BE TRANSFERRED TO CSI 5'md'.'                        
+      say 'EXISTING 'name' FILES ON CSI 5'md' WILL BE DESTROYED.'               
+      say 'IF THIS IS CORRECT, TYPE "DESTROY 'name'" BELOW:'                    
+      pull answer                                                               
+        if answer /= 'DESTROY 'name then exit                                   
+      address COMMAND 'CP LINK CSI 5'md' 5FF M MCSI'                            
+      if rc /= 0 then do                                                        
+        say 'LINK TO CSI 5'md' FAILED - TRANSFER TERMINATED'                    
+        exit                                                                    
+      end                                                                       
+    end                                                                         
+   'ACCESS 5FF L'                                                               
+say 'FILES COPIED:'                                                             
+    fn=name                                                                     
+    type='RPGII'     ; call send                                                
+    type='TEXT'      ; call send                                                
+    type='MESSAGE'   ; call send                           /*4*/                
+    type='SQLSTMT'   ; call send                                                
+    type='SQLTABLE'  ; call send                           /*2*/                
+    y=0                                                                         
+    do until y>9                                                                
+        type='FT'y    ; call send                                               
+        type='LIMIT'y ; call send                                               
+        type='SQLDA'y ; call send                                               
+        y=y+1                                                                   
+        end                                                                     
+    x=0                                                       /*3*/             
+    do until x>9                                                                
+      fn=name||0||x                                                             
+      type='RPGII'   ; call send                                                
+      type='TEXT'    ; call send                                                
+      type='MESSAGE' ; call send                              /*4*/             
+      type='SQLSTMT' ; call send                                                
+      type='PANEL'   ; call send                                                
+      y=0                                                                       
+      do until y>9                                                              
+        type='FT'y     ; call send                                              
+        type='LIMIT'y  ; call send                                              
+        type='SQLDA'y  ; call send                                              
+        y=y+1                                                                   
+        end                                                                     
+      x=x+1                                                                     
+      end                                                                       
+    fn=name                                                                     
+    type='HELP'  ; call send                                                    
+    type='EXEC'  ; call send                                                    
+    fn=name'$'   ; call send                                                    
+   'FLIST 'name'* * L'                                                          
+   'REL L (DET'                                                                 
+exit                                                                            
+send:                                                                           
+  fnsave=fn                                                     /*5*/           
+  if type='MESSAGE' then fn=fn'M00'                             /*5*/           
+ 'STATE 'fn type' A'                                                            
+  if rc=0 then do                                                               
+   'COPY 'fn type' A = = L (REP'                                                
+    if rc=0 then do                                                             
+      say fn type                                                               
+      if userid()='QC' then do                                                  
+        line=fn type' COPIED TO CSI'                                            
+        line=overlay(date(),line,52)                                            
+        line=overlay(time(),line,65)                                            
+       'EXECIO 1 DISKW '$' LOG A (VAR LINE'                                     
+       'ERASE 'fn type' A'                                                      
+    /*  if type='RPGII' then do                                                 
+         'SET CMSTYPE HT'                                                       
+         'EXECIO 1 DISKR 'name' PGMUID A (VAR PGMUID FINIS'                     
+          if rc=0 and pgmuid/='        ' then do                                
+           'RXSQLEX DROP PROGRAM CSI.'fn                                        
+           "RXSQLEX UPDATE SYSTEM.SYSACCESS SET CREATOR='CSI'                   
+            WHERE TNAME='"fn"' AND CREATOR='"pgmuid"'"                          
+           'ERASE 'name' PGMUID A'                                              
+          end                                                                   
+         'SET CMSTYPE RT'                                                       
+        end                                                                     
+        else do                                                                 
+          pgmuid=left(userid(),8)                                               
+         'EXECIO 1 DISKW 'name' PGMUID L 1 (VAR PGMUID FINIS'                   
+        end       */                                                            
+      end                                                                       
+    end                                                                         
+    else do                                                                     
+      say rc' ERROR IN COPYING 'name type                                       
+      if userid()='QC' then do                                                  
+        line='******ERROR IN COPYING 'fn type' TO CSI'                          
+        line=overlay(date(),line,52)                                            
+        line=overlay(time(),line,65)                                            
+       'EXECIO 1 DISKW '$' LOG A (VAR LINE'                                     
+      end                                                                       
+    end                                                                         
+  end                                                                           
+  fn=fnsave                                                     /*5*/           
+return                                                                          

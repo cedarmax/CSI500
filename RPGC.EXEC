@@ -1,0 +1,75 @@
+/* RPGC - Compile and/or link RPG program                  09/02/89  *          
+*                                                                    *          
+*  Use RPGC to compile, link, or compile and link an RPG program,    *          
+*  as follows:                                                       *          
+*                                                                    *          
+*         RPGC pgmname action (option                                *          
+*              |       |       |_ "NOSQL" if SQLMGR not included.    *          
+*              |       |                                             *          
+*              |       |_If not present, program will be compiled    *          
+*   Program name         and linked with SQLMGR included.  Other     *          
+*                        options are as follows:                     *          
+*                                                                    *          
+*                        NC - No compile; link & create DOSLIB only. *          
+*                        NL - No link; compile only.                 *          
+*                        CL - Complile and link; this is needed only *          
+*                             if you want to create a DOSLIB.        *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*09/02/89 Added "SET DOSPART 512K" because, with dynamic setting of  *          
+*         dospart in other programs, it may be too small.            *          
+*                                                                    *          
+*1* 01/12/90 Added DEVLOG to record use of RPGC.                     *          
+*                                                                    *          
+*2* 01/27/90 Changed to compile only (no link) unless CL parameter   *          
+*            is specified because linking is not needed with new     *          
+*            method of calling programs (LOAD instead of FETCH).     *          
+*                                                                    *          
+*3*  10/03/90 JTM001                                                 *          
+*    Changed to require "(" before option (NOSQL); changed           *          
+*    instructions accordingly.                                       *          
+*                                                                    *          
+*********************************************************************/          
+arg rnam action '(' sql .                                        /*3*/          
+  'SETMSG ON'                                                    /*1*/          
+   if (rnam='') then do                                                         
+     say 'NO PROGRAM NAME SPECIFIED; RPGC TERMINATED'                           
+     exit                                                                       
+   end                                                                          
+   x=time('R')                                                   /*1*/          
+   if action='' then do                                                         
+     opt=' '; rpgexec='RPGII'                                    /*2*/          
+   end                                                                          
+   if action='CL' then do                                                       
+     opt='LINK'; rpgexec='RPGII'                                                
+   end                                                                          
+   if action='NL' then do                                                       
+     opt='  '; rpgexec='RPGII'                                                  
+   end                                                                          
+   if action='NC' then do                                                       
+     opt='LINK'; rpgexec='RPGIIL'                                               
+   end                                                                          
+   if opt='OPT' then do                                                         
+     say 'INVALID OPTION SPECIFIED; RPGC TERMINATED'                            
+     exit                                                                       
+   end                                                                          
+   if sql^='NOSQL' then do                                                      
+     queue '   INCLUDE SQLMGR'                                                  
+     queue '   INCLUDE ARIRVSTC'                                                
+     queue '   INCLUDE 'rnam                                                    
+    'EXECIO 3 DISKW 'rnam' DOSLNK A 1 F (FINIS'                                 
+   end                                                                          
+  'SET DOS ON'                                                                  
+  'SET DOSPART 512K'                                                            
+  'ASSGN SYSLST UA'                                                             
+   queue rnam                                                                   
+   say rpgexec rnam opt                                                         
+  'EXEC' rpgexec rnam '( 'opt 'TERM'                                            
+  'SET DOS OFF'                                                                 
+  'ERASE' rnam 'DOSLNK A'                                                       
+  'MTSTACK'                                                                     
+   if left(userid(),5)='BATCH' then code='RPGB'                 /*1*/           
+   else code='RPGC'                                             /*1*/           
+  'DEVLOG 'code rnam time('E')                                  /*1*/           
+exit                                                                            

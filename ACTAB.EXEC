@@ -1,0 +1,22 @@
+/**ACTAB - Update ACCESS table                             03/07/89  *          
+*                                                                    *          
+*  Use ACTAB to update the userid ACCESS file on the user's A disk,  *          
+*  so that all commands will be valid when used with ACSMGR.         *          
+*  All commands in CSI.COMMANDS will be included in the ACCESS file, *          
+*  regardless of their status code.  Then, all of these commands     *          
+*  will be valid commands with ACSMGR.  This includes commands with  *          
+*  status code X in CSI.COMMANDS.                                    *          
+*                                                                    *          
+*  Menu files are not affected by ACTAB.  Therefore, all commands    *          
+*  which are added to the ACCESS file will not be on a menu.         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 05/16/90 Change ACCESS from E to G/A.                            *          
+*********************************************************************/          
+signal on error                                                                 
+  'FILE ACTAB 'userid()' ACCESS A'                                              
+  'ACCESS 501 G/A'                                              /*1*/           
+  'RN ACTAB01'                                                                  
+error:                                                                          
+exit rc                                                                         

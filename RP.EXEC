@@ -1,0 +1,57 @@
+/* RP - Test RPG panel program                             07/02/89   *         
+*                                                                     *         
+*  Use RP to test an RPG panel program.  The program DOSLIB and       *         
+*  all files which it needs must reside on your A disk or extensions  *         
+*  of your A disk.  RP is called as follows:                          *         
+*                                                                     *         
+*         RP pgmname U 10000000 (FILE rpgin fname ftype fmode         *         
+*            |       | |         |                                    *         
+*            |       | |         |_Statement for defining CSM file.   *         
+*            |       | |           This statement will be executed    *         
+*            |       | |           by RUNDOS exec.                    *         
+*            |       | |                                              *         
+*            |       | |_U-indicators in UPSI byte format.            *         
+*            |       |                                                *         
+*            |       |_"U" required here if U-indicators are needed.  *         
+*            |                                                        *         
+*            |_Name of panel program.                                 *         
+*                                                                     *         
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+***********************************************************************         
+* 06/01/89 Added provisions for spooling dump file and then receiving *         
+*          to A disk as "pgmname" SYSLST A.                           *         
+*                                                                     *         
+* 07/02/89 If the program to be tested specifies any CMS files, the   *         
+*          FILE exec cannot be used.  This is because DOS must be set *         
+*          off before ISPDCS is called.  But, setting DOS off cancels *         
+*          the ASSGN that was done by the FILE exec to define the CMS *         
+*          file.  This causes the program to terminate with one of    *         
+*          the following messages:                                    *         
+*                                                                     *         
+*               DMSBOP069E Disk   not accessed                        *         
+*               DMSBOP089E Open error code 06 on <RPG file name>      *         
+*               4883I INVALID LOGICAL UNIT                            *         
+*                                                                     *         
+*          This is fixed by adding the option of specifying the FILE  *         
+*          command with the RP command as shown above.  The FILE      *         
+*          command must follow an opening parenthesis.                *         
+*                                                                     *         
+*1* 12/30/89 Change ISPDCS to CSISPF for VM Release 6.                *         
+*                                                                     *         
+**********************************************************************/         
+arg rnam                                                                        
+   if rnam=''then do                                                            
+     say 'NO PROGRAM NAME SPECIFIED - RP TERMINATED'                            
+     exit                                                                       
+     end                                                                        
+    parse var rnam rnam '(' command                                             
+    if command/='' then push command                                            
+   'SET DOS OFF'                                                                
+/* 'CP CHANGE READER ALL HOLD'                                                  
+   'CP SPOOL PRINTER * CLASS A CONT NOHOLD' */                                  
+   'CSISPF CMD(RUNDOS 'rnam') CMS'                              /*1*/           
+/* 'CP SPOOL PRINTER NOCONT CLOSE'                                              
+    parse var rnam rnam .                                                       
+   'READ 'rnam' SYSLST'                                                         
+   'CP CHANGE READER ALL NOHOLD'  */                                            
+exit                                                                            

@@ -1,0 +1,8 @@
+CSIA010   .ALARM=YES                                                            
+'WARNING: MULTIPLE RECORDS WERE DELETED IN THE LAST OPERATION'                  
+CSIA011   .ALARM=YES                                                            
+'&CANCEL IS AN INVALID RESPONSE'                                                
+CSIA012   .ALARM=YES                                                            
+'THIS IS AN INVALID COMMAND CODE'                                               
+CSIA013   .ALARM=YES                                                            
+'INVALID COMMAND CODE'                                                          

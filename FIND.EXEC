@@ -1,0 +1,116 @@
+/**FIND   - Find a specified word or phrase in files on     11/11/89 *          
+*           a specified minidisk.                                    *          
+*                                                                    *          
+*  Use FIND to locate files on a specified minidisk that contain a   *          
+*  specified word or phrase, as follows:                             *          
+*                                                                    *          
+*    FIND phrase addr fname ftype (options                           *          
+*         |      |    |     |      |                                 *          
+*         |      |    |     |      |_EDIT - Stop search and edit     *          
+*         |      |    |     |      |        each file that contains  *          
+*         |      |    |     |      |        the phrase.              *          
+*         |      |    |     |      |_CASE - Used mixed case for the  *          
+*         |      |    |     |               search.  If this option  *          
+*         |      |    |     |               is NOT specified, all    *          
+*         |      |    |     |               characters in the phrase *          
+*         |      |    |     |               and in the files to be   *          
+*         |      |    |     |               searched will be convert-*          
+*         |      |    |     |               to upper-case before any *          
+*         |      |    |     |               comparison is done.      *          
+*         |      |    |     |                                        *          
+*         |      |    |     |_File type of files to be searched.     *          
+*         |      |    |       If all file types are to be            *          
+*         |      |    |       searched, enter an asterisk (*).       *          
+*         |      |    |                                              *          
+*         |      |    |_File name of files to be searched.           *          
+*         |      |      If all file names are to be searched,        *          
+*         |      |      enter an asterisk (*).                       *          
+*         |      |                                                   *          
+*         |      |_ Virtual address of disk on which the files       *          
+*         |         to be searched are located.                      *          
+*         |                                                          *          
+*         |_Phrase to be found (one or more words).  The phrase      *          
+*           must be enclosed in quotes or any other character,       *          
+*           except "(" (because "(" is used to indicate options).    *          
+*           Thus, whatever character is used to start the phrase     *          
+*           must also be used to end the phrase.  Valid examples     *          
+*           are as follows:                                          *          
+*                            'CENTRAL SYSTEMS INC.'                  *          
+*                            "CENTRAL SYSTEMS INC."                  *          
+*                            =CENTRAL SYSTEMS INC.=                  *          
+*                            !CENTRAL SYSTEMS INC.!                  *          
+*                            {CENTRAL SYSTEMS INC.{                  *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+parse arg phrase '(' option                                                     
+parse source . . $ .                                                            
+    quote=left(phrase,1)                                                        
+    phrase=strip(phrase,L,quote)                                                
+    parse var phrase phrase (quote) rest                                        
+    parse upper var rest addr fname ftype                                       
+    parse upper var option option                                               
+    if find(option,'EDIT')=0 then edit='N'                                      
+    else edit='Y'                                                               
+    if find(option,'CASE')=0 then case='U'                                      
+    else case='M'                                                               
+    if case='U' then parse upper var phrase phrase                              
+/* See if specified disk is already accessed  */                                
+   'SADT *'                                                                     
+    do until queued()=0                                                         
+      pull . . . devaddr mode . . . . rw                                        
+      if devaddr=addr then do                                                   
+        access='Y'                                                              
+        if edit='Y' & rw/='R/W' then do                                         
+         'RELEASE 'mode' (DETACH'                                               
+          address COMMAND 'CP LINK * 'addr addr                                 
+        end                                                                     
+       'MTSTACK'                                                                
+      end                                                                       
+    end                                                                         
+    if access/='Y' then do                                                      
+      mode='E'                                                                  
+     'ACCESS 'addr' E'                                                          
+      if rc /= 0 then do                                                        
+        say 'ERROR ON ACCESS FOR DISK 'disk' - '$' TERMINATED'                  
+        signal end                                                              
+      end                                                                       
+    end                                                                         
+   'LISTFILE 'fname ftype mode '(FIFO'                                          
+    if queued()=0 then do                                                       
+      say 'NO FILES ON DISK 'disk' - '$' TERMINATED'                            
+      signal end                                                                
+    end                                                                         
+    todo=queued()                                                               
+    do i=1 to todo                                                              
+      pull fileid                                                               
+      rc=0                                                                      
+      fileid=space(fileid)                                                      
+      parse var fileid fn ft .                                                  
+      say 'Searching 'fn ft' for "'phrase'"'                                    
+      lineno=0                                                                  
+      do until rc/=0                                                            
+       'EXECIO 1 DISKR 'fileid' (VAR RECORD'                                    
+        if rc=0 then do                                                         
+          lineno=lineno+1                                                       
+          if case='U' then parse upper var record record                        
+          if pos(phrase,record)/=0 then do                                      
+            if find(option,'EDIT')=0 then,                                      
+              say '   "'phrase'" found on line 'lineno                          
+            else do                                                             
+             'EXECIO 'queued()' DISKW SAVE STACK A 1 (FINIS'                    
+              push '/'phrase                                                    
+             'XEDIT 'fileid                                                     
+             'EXECIO * DISKR SAVE STACK A 1'                                    
+              rc=28                                                             
+            end                                                                 
+          end                                                                   
+        end                                                                     
+      end                                                                       
+    end                                                                         
+end:                                                                            
+    if addr/=devaddr then 'RELEASE 'mode                                        
+   'MTSTACK'                                                                    
+exit                                                                            

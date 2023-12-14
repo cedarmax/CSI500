@@ -1,0 +1,23 @@
+/* UPSI - Display condition of U-indicators.                12/29/90 *          
+*                                                                    *          
+*  Use UPSI to display the current condition of U-indicators, which  *          
+*  are defined by the 8 bits of the UPSI byte.  When used in a batch *          
+*  job, UPSI will write to the batch listing file.  Values are       *          
+*  displayed as ON or OFF.                                           *          
+*                                                                    *          
+**********************************************************************          
+*0*  12/29/90 JTM001  (Added above comment lines.)                   *          
+*********************************************************************/          
+   'DOS ON'                                                                     
+   'Q UPSI (STACK'                                                              
+    Pull . . ups                                                                
+    Do i=1 to 8                                                                 
+      u.i=substr(ups,i,1)                                                       
+      If u.i='0' then u.i='OFF'                                                 
+      Else u.i='ON'                                                             
+    End                                                                         
+    uind='U1='u.1'    U2='u.2'    U3='u.3'    U4='u.4'    '                     
+    uind=uind'U5='u.5'    U6='u.6'    U7='u.7'    U8='u.8                       
+    Say uind                                                                    
+   'DOS RESTORE'                                                                
+Exit                                                                            

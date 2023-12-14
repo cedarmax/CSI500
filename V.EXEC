@@ -1,0 +1,25 @@
+/* V - REXX function to get the value of an ISPF variable  03/07/89  *          
+*                                                                    *          
+*  This is an external function to be called from an EXEC which      *          
+*  uses the PANEL EXEC to display an ISPF panel.  Variables are      *          
+*  set and passed to the panel with the PANEL EXEC.  If an ISPF      *          
+*  variable is changed by the panel display, you can get the value   *          
+*  of it with the function V(xxxx), where "xxxx" is the name of      *          
+*  the ISPF variable as defined on the panel.  For example, if the   *          
+*  panel had a variable named "ACCOUNT" and you wanted to use its    *          
+*  value to set the REXX variable "x", you could use the following   *          
+*  statement:                                                        *          
+*                        x=V(account)                                *          
+*                                                                    *          
+*  You can use the same name for both variables, as follows:         *          
+*                                                                    *          
+*                  account=V(account)                                *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg var                                                                         
+address ISPEXEC VGET '('VAR')' SHARED                                           
+val=VALUE(VAR)                                                                  
+exit val                                                                        

@@ -1,0 +1,71 @@
+/* LIST  - Do FLIST for a specified minidisk.              11/08/89   *         
+*                                                                     *         
+*          LIST  id addr pass (fname ftype                            *         
+*                |  |    |     |     |                                *         
+*                |  |    |     |     |_File type to be listed.        *         
+*                |  |    |     |                                      *         
+*                |  |    |     |_File name to be listed.              *         
+*                |  |    |                                            *         
+*                |  |    |_Read password of disk.  This is not        *         
+*                |  |      required if "id" is not specified, or      *         
+*                |  |      if the password is the same as the last    *         
+*                |  |      time you used this exec.  Therefore, if    *         
+*                |  |      you want to list files on several disks    *         
+*                |  |      with the same read password, you only need *         
+*                |  |      to specify the password the first time.    *         
+*                |  |                                                 *         
+*                |  |_Virtual address of the minidisk to be listed.   *         
+*                |    This parameter can be omitted only if "id" is   *         
+*                |    not specified, in which case "191" is assumed.  *         
+*                |                                                    *         
+*                |_User ID of the owner of the minidisk.  If this is  *         
+*                  omitted, the currently logged-in user ID is used.  *         
+*                                                                     *         
+*   If LIST is specified without any parameters, your 191 disk will   *         
+*   be listed.  However, "fname" and "ftype" can still be specified.  *         
+*                                                                     *         
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+***********************************************************************         
+*                                                                     *         
+**********************************************************************/         
+arg addr                                                                        
+    parse var addr addr '(' opt                                                 
+    if opt='' then do                                                           
+      fn='*'; ft='*'                                                            
+    end                                                                         
+    else do                                                                     
+      opt=strip(opt,T,')')                                                      
+      parse var opt fn ft .                                                     
+      if ft='' then ft='*'                                                      
+    end                                                                         
+    parse var addr v1 v2 v3                                                     
+    if v1='' then v1='191'                                                      
+    if v2='' then do                                                            
+      uid=userid(); addr=v1                                                     
+    end                                                                         
+    else do                                                                     
+      uid=v1; addr=v2                                                           
+      if v3='' then 'GLOBALV SELECT CSI GET PASSWORD'                           
+      else do                                                                   
+        password=v3                                                             
+       'GLOBALV SELECT CSI PUT PASSWORD'                                        
+      end                                                                       
+    end                                                                         
+signal on error                                                                 
+    address COMMAND 'CP LINK 'uid addr' 5FF RR' password                        
+   'ACCESS 5FF E/A'                                                             
+signal off error                                                                
+   'FLIST 'fn ft' E'                                                            
+    if rc=28 then do                                                            
+      if fn='*' and ft='*' then say uid' DISK 'addr' IS EMPTY'                  
+      else do                                                                   
+        if ft='*' then ft=''                                                    
+        say 'NO 'fn ft' FILES ON 'uid' DISK 'addr                               
+      end                                                                       
+    end                                                                         
+    else if rc/=0 then say rc 'ERROR LISTING 'uid' DISK 'addr                   
+error:                                                                          
+   'RELEASE E'                                                                  
+   'DETACH 5FF'                                                                 
+    code=rc                                                                     
+exit code                                                                       

@@ -1,0 +1,140 @@
+/* PCFILE - Transfer PC file to or from user's A disk      09/03/89  *          
+*                                                                    *          
+*  Use PCFILE to transfer a PC file to or from a terminal-emulating  *          
+*  PC from or to the user's A disk.                                  *          
+*                                                                    *          
+*               PCFILE TO/FROM name                                  *          
+*                      |       |                                     *          
+*                      |       |_Name of the file to be transferred. *          
+*                      |         If the user tries to transfer a     *          
+*                      |         file with another name, no transfer *          
+*                      |         will be done.                       *          
+*                      |                                             *          
+*                      |_Must be "TO" or "FROM" to indicate the      *          
+*                        type of transfer to be done.  TO means      *          
+*                        that the file will be transferred to the    *          
+*                        PC and FROM means that the file will be     *          
+*                        transferred from the PC.                    *          
+*                                                                    *          
+*  PC file transfer must be initiated from the PC.  Therefore, this  *          
+*  exec tells the user to change the PC from the terminal mode to    *          
+*  the PC mode and follow the instructions on the PC menu for file   *          
+*  transfer.  If the user tries to send when he should receive or    *          
+*  receive when he should send, an error message will be displayed   *          
+*  and no transfer will be done.  The user can then try again or     *          
+*  terminate the exec.  If no transfer is done, the return code will *          
+*  be 28.                                                            *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 06/24/90 Display error message if transfer not successful.       *          
+*                                                                    *          
+*2* 10/21/90 JTM001                                                  *          
+*   If error is detected in PC command, change operation code        *          
+*   (first parameter after IND$FILE) to ERROR in order to cause      *          
+*   IND$FILE to send error message to PC.  This was done in the      *          
+*   process of trying to get FTTERM to work with PCFILE.  However,   *          
+*   this did not make FTTERM work; the FTTERM manual states (p. 3-13)*          
+*   that "you cannot run a host program while transferring files     *          
+*   with 3270 emulation."  If FTTERM is used for file transfer, the  *          
+*   user must exit from the ACSMGR and be in CMS with a Ready prompt.*          
+*                                                                    *          
+*3* 10/24/90 JTM001                                                  *          
+*   Add option to bypass file transfer from PC, so that user can     *          
+*   proceed if the file has already been transferred.  If the user   *          
+*   presses F3 before initiating a transfer from the PC, this exec   *          
+*   will check for the existence of the transferred file and will    *          
+*   terminate with a 0 return code if the file exists.  Otherwise,   *          
+*   an error message will be displayed.                              *          
+*                                                                    *          
+*********************************************************************/          
+arg dir name                                                                    
+    name=strip(name)                                                            
+/*3 if dir='FROM' then 'ERASE 'name' PCFILE A'  ***/            /*1*/           
+   'CP SET PF03 IMMED END'                                                      
+    lo='1D60'x ; hi='1DE8'x                                                     
+    if left(dir,1)/='F' & left(dir,1)/='T' then exit 28                         
+    if name='' then exit 28                                                     
+    if left(dir,1)='F' then do                                                  
+      l.1=center('Transfer File From PC',68)                                    
+      l.2=center('---------------------',70)                                    
+      ft='from'                                                                 
+    end                                                                         
+    if left(dir,1)='T' then do                                                  
+      l.1=center('Transfer File To PC',68)                                      
+      l.2=center('-------------------',70)                                      
+      ft='to'                                                                   
+    end                                                                         
+    l.1= hi||l.1                                                                
+    l.2=l.2||lo                                                                 
+    l.3='This function transfers a file 'ft' your PC.  It can be used only if'  
+    l.4='your terminal is a PC that is using terminal emulator software.  If'   
+    l.5='your terminal is not a PC, press F3 to return to your menu.'           
+    l.6=''                                                                      
+    l.7='To transfer a file 'ft' your PC, you must first change your PC from'   
+    l.8='the terminal mode to the PC mode.  The method of doing this depends'   
+    l.9='on the type of terminal emulator software being used in your PC. If'   
+    l.10='you do not know how to change your PC mode, you will need to refer'   
+    l.11='to the instructions for your PC terminal emulation software.'         
+    l.12=''                                                                     
+    l.13='When you are ready to proceed, do the following:'                     
+    l.14='         1. Put your terminal in the PC mode.'                        
+    l.15='         2. If the file transfer menu is not displayed'               
+    l.16='            on your PC, enter the PC command "TRANSFER".'             
+    l.17='         3. Follow the instructions on the PC menu for'               
+    l.18='            transferring file'hi||name ft||lo'your PC.'               
+    l.19='         4. When the file transfer is complete, change'               
+    l.20='            back to the terminal mode.'                               
+    l.21='Press'hi'F3'lo'to continue without PC file transfer.'     /*3*/       
+    code=28   /*Return code shows error until transfer is complete*/            
+    m=21                                                            /*3*/       
+display:                                                                        
+   'CLRSCRN'                                                                    
+    do n=1 to m                                                                 
+      say '     'l.n                                                            
+    end                                                                         
+    l.20=l.20||hi                                               /*3*/           
+    pull line                                                                   
+    parse var line cmd pg fname ftype fmode '(' options         /*2*/           
+    if pg='PUT' | pg='PTP' then pcft='from'                     /*2*/           
+    if pg='GET' | pg='GTP' then pcft='to'                       /*2*/           
+    if fmode='' then fmode='A'                                  /*2*/           
+    if options/='' then options='('options                      /*2*/           
+    if ft/=pcft | name/=fname | ftype/='PCFILE' then pg='ERROR' /*2*/           
+    line=cmd pg fname ftype fmode options                       /*2*/           
+    if cmd='IND$FILE' then do                                   /*2*/           
+      if dir='FROM' then 'FDELETE 'name' PCFILE A'              /*3*/           
+      m=21                                                                      
+      interpret "'"line"'"                                      /*1*/           
+      code=rc                                                   /*1*/           
+      if pg='ERROR' then signal pcerror                         /*2*/           
+      if code=0 then do                                         /*1*/           
+        if dir='FROM' then do                                   /*1*/           
+         'STATE 'name' PCFILE A'                                /*1*/           
+          code=rc                                               /*1*/           
+          if rc=0 then signal stop                              /*1*/           
+        end                                                     /*1*/           
+        else signal stop                                        /*1*/           
+      end                                                       /*1*/           
+      l.21=rc' Error in transferring PC file; try again or press F3 to cancel.' 
+      signal display                                            /*1*/     /*1*/ 
+    end                                                                         
+pcerror:                                                        /*2*/           
+    if cmd='END' then do                                        /*3*/           
+      if dir='FROM' & left(l.21,5)='Press' then do              /*3*/           
+        if exist(name 'PCFILE A')=1 then code=0                 /*3*/           
+        else do                                                 /*3*/           
+          l.21=name' PC file has not been transferred;',        /*3*/           
+          'try again or press F3 to cancel.'                    /*3*/           
+          signal display                                        /*3*/           
+        end                                                     /*3*/           
+      end                                                       /*3*/           
+    end                                                         /*3*/           
+    else do                                                     /*2*/           
+      m=21                                                                      
+      l.21='An invalid PC command was entered; try again or press F3 to cancel.'
+      signal display                                                            
+    end                                                                         
+stop:                                                                           
+   'CLRSCRN'                                                                    
+exit code                                                                       

@@ -1,0 +1,120 @@
+/**UTIL - List instructions for CSI utility EXECs.              03/22/90*       
+*                                                                       *       
+*  Use UTIL to create and display a file of instructions for CSI        *       
+*  utility EXECs that reside on the F disk (CSI 500), as follows:       *       
+*                                                                       *       
+*               UTIL name (opt1  opt2                                   *       
+*                    |     |     |                                      *       
+*                    |     |     |_File mode for disk on which the      *       
+*                    |     |       EXECs reside.  If this is not        *       
+*                    |     |       specified, the default is F.         *       
+*                    |     |                                            *       
+*                    |     |_Options as follows:                        *       
+*                    |       A - List all execs.  This is used only     *       
+*                    |           when name(s) are not specified.        *       
+*                    |       M - List only execs that are used for      *       
+*                    |           system administration and maintenance. *       
+*                    |       IA- List an index only for all execs.      *       
+*                    |       IM- List an index only for system          *       
+*                    |           administration and maintenance execs.  *       
+*                    |                                                  *       
+*                    |_ Name(s) of the EXECs for which instructions     *       
+*                       are to be listed.  If this parameter is         *       
+*                       omitted, only the EXECs selected by the option  *       
+*                       parameter will be listed.  If no parameters     *       
+*                       are specified, a list will not be created, but  *       
+*                       the last list created with UTIL will be         *       
+*                       displayed.                                      *       
+*                                                                       *       
+*  All execs to be selected for the listing must have the exec name     *       
+*  beginning in Col. 4 of line 1 of the exec.  Execs which have an      *       
+*  asterisk in Col. 3 of line 1 are considered to be in the system      *       
+*  administration and maintenance category.                             *       
+*                                                                       *       
+*  All instructions will be written to a file named UTIL HELP A, which  *       
+*  will be displayed automatically upon completion.  If UTIL is used    *       
+*  without any parameters, a new list will not be created and the prior *       
+*  list will be displayed.                                              *       
+*                                                                       *       
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+*************************************************************************       
+*1* 08/12/90 JTM001                                                     *       
+*   Added index at top of file; option for index only.                  *       
+*                                                                       *       
+*2* 10/24/90 JTM001                                                     *       
+*   Added option to specify a disk mode letter.  If not specified,      *       
+*   the default is F.                                                   *       
+*                                                                       *       
+************************************************************************/       
+TRACE 'O'                                                                       
+arg name '(' opt                                                                
+   if name='' then do                                                           
+     if opt='' then signal browse                                               
+     else name='*'                                                              
+   end                                                                          
+   parse var opt opt fm                                         /*2*/           
+   if fm='' then fm='F'                                         /*2*/           
+   if opt='' then opt='A'                                                       
+   else if left(opt,1)='I' then do                              /*1*/           
+     ixo='Y'                                                    /*1*/           
+     opt=right(opt,1)                                           /*1*/           
+   end                                                          /*1*/           
+   if name='' then 'LISTFILE * EXEC 'fm' (STACK'/*2*/                           
+   else do until name=''                                                        
+     parse var name nam name                                                    
+    'LISTFILE 'nam' EXEC 'fm' (STACK'                           /*2*/           
+   end                                                                          
+   helpflag=0                                                                   
+   listflag=0                                                                   
+   n=1                                                          /*1*/           
+   do until queued()=0                                                          
+     pull name .                                                                
+     call read                                                                  
+   end                                                                          
+browse:                                                                         
+   if listflag/=0 then do                                       /*1*/           
+     heading=copies('-',80)                                     /*1*/           
+    'EXECIO 1 DISKW UTIL LIST A 0 F 80 (VAR HEADING FINIS'      /*1*/           
+     if helpflag/=0 then 'COPYFILE UTIL HELP A UTIL LIST A (APPEND' /*1*/       
+    'ERASE UTIL HELP A'                                         /*1*/           
+    'RENAME UTIL LIST A UTIL HELP A'                            /*1*/           
+    'BROWSE UTIL HELP A'                                                        
+   end                                                          /*1*/           
+   else say 'Files of the type specified do not exist.'                         
+exit                                                                            
+read:                                                                           
+  'EXECIO 1 DISKR 'name' EXEC 'fm' 1 (VAR LINE'                 /*2*/           
+   if left(opt,1)='M' & substr(line,3,1)/='*' then signal skip                  
+   if left(opt,1)/='M' & left(opt,1)/='A' then signal skip                      
+   if pos(name,line)=4 then do                                                  
+     say name                                                   /*1*/           
+     if ixo/='Y' then,                                                          
+    'EXECIO * DISKR 'name' EXEC 'fm' 1 (FIND /***********************/' /*2*/   
+     if listflag=0 then do                                    /*1*/             
+      'FDELETE UTIL LIST A'                                   /*1*/             
+       heading='CSI UTILITY EXECs - Listed 'date('W') date('N'),/*1*/           
+                time('C')                                     /*1*/             
+      'EXECIO 1 DISKW UTIL LIST A 0 F 80 (VAR HEADING'        /*1*/             
+       heading=copies('-',80)                                 /*1*/             
+      'EXECIO 1 DISKW UTIL LIST A 0 F 80 (VAR HEADING'        /*1*/             
+       listflag=1                                             /*1*/             
+     end                                                                        
+     line=substr(line,4,56)                                   /*1*/             
+     n=right(n,3)||'.'                                        /*1*/             
+     line=n line                                              /*1*/             
+     n=n+1                                                    /*1*/             
+    'EXECIO 1 DISKW UTIL LIST A 0 F 80 (VAR LINE'             /*1*/             
+     if ixo='Y' then 'FINIS 'name' EXEC F'                    /*1*/             
+     else do                                                  /*1*/             
+       if helpflag=0 then 'FDELETE UTIL HELP A'                                 
+       helpflag=1                                                               
+       pull . qty                                                               
+       pull trash                                                               
+      'MAKEBUF'                                                                 
+      'EXECIO 'qty' DISKR 'name' EXEC 'fm' 1 (FINIS'            /*2*/           
+      'EXECIO 'qty' DISKW UTIL HELP A 0 F 80 (FINIS'                            
+      'DROPBUF'                                                                 
+     end                                                      /*1*/             
+   end                                                                          
+   skip:                                                                        
+return                                                                          

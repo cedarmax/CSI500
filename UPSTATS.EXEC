@@ -1,0 +1,70 @@
+/**UPSTATS - Update Statistics for DB Spaces.              07/17/89  *          
+*                                                                    *          
+*  Use UPSTATS to issue SQL Update Statistics commands for specified *          
+*  DB Spaces.                                                        *          
+*                                                                    *          
+*                                                                    *          
+*        UPSTATS DBSPACE1 DBSPACE2 DBSPACE3 . . . . . (filetype      *          
+*                |                                     |             *          
+*                | File type of control file,__________|             *          
+*                | if any, as described below.                       *          
+*                |                                                   *          
+*                |                                                   *          
+*                |_Name(s) of DB spaces for which statistics are to  *          
+*                  be updated.  If no names are provided, the file   *          
+*                  UPSTATS filetype will be read to get the names,   *          
+*                  where filetype is specified as described above.   *          
+*                  There can be one or more names per record,        *          
+*                  separated by one or more blank spaces.  The file  *          
+*                  can contain any number of records, but one record *          
+*                  should normally be sufficient.                    *          
+*                                                                    *          
+*  For each of the DB spaces, UPDATE STATISTICS will be done.        *          
+*                                                                    *          
+*  This exec is also intended to be used by VMUTIL to update         *          
+*  statistics automatically on a regular basis.  To do this,         *          
+*  the WAKEUP PARMS file on the VMUTIL 191 disk should contain       *          
+*  instructions to link to CSI500 and access it as D/A, and then     *          
+*  invoke UPSTATS.  Upon completion by VMUTIL, CSI500 will be        *          
+*  detached.                                                         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1*12/09/89 Changed UPDATE ALL to UPDATE to reduce execution time    *          
+*           Added write to UPSTATS LIST for verification that        *          
+*           UPSTATS was exectued.                                    *          
+*           Added option to specify control file type so that        *          
+*           different files can be used at different times by VMUTIL.*          
+*                                                                    *          
+*2*12/25/89 Change control file from CSI 500 to CSI 191.             *          
+*                                                                    *          
+*********************************************************************/          
+parse upper arg spaces '(' type                                  /*1*/          
+   'ERASE UPSTATS LIST A'                                        /*1*/          
+    rc=0                                                                        
+    if type/='' then do while rc=0                                              
+      'EXECIO 1 DISKR UPSTATS 'type' A (VAR LINE'                /*1*/          
+       if rc=0 then spaces=spaces||line                                         
+    end                                                                         
+   'FINIS UPSTATS 'type' A'                                      /*1*/          
+    if userid()='VMUTIL' then do                                                
+      address command 'CP LINK RXSQL 191 101 RR RSQL'                           
+      address command 'CP LINK SQLDBA 195 195 RR'                               
+      address command 'CP LINK CSI 191 591 RR'                   /*2*/          
+     'ACCESS 101 Z/A'                                                           
+     'ACCESS 195 Q/A'                                                           
+     'ACCESS 591 F/A'                                                           
+    end                                                                         
+    do while spaces/=''                                                         
+      parse var spaces space spaces                                             
+     'RXSQLEX UPDATE STATISTICS FOR DBSPACE 'space               /*1*/          
+      line=date() time() space                                   /*1*/          
+     'EXECIO 1 DISKW UPSTATS LIST A (FINIS VAR LINE'             /*1*/          
+    end                                                                         
+    if userid()='VMUTIL' then do                                                
+     'RELEASE D (DET'                                                           
+     'RELEASE F (DET'                                            /*2*/          
+     'RELEASE Q (DET'                                                           
+     'RELEASE Z (DET'                                                           
+    end                                                                         
+exit                                                                            

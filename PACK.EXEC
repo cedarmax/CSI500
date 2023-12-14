@@ -1,0 +1,52 @@
+/* PACK  - REXX function to convert decimal data to        11/05/89  *          
+*          a value expressed in packed format.                       *          
+*                                                                    *          
+*  This is an external function which returns the packed value       *          
+*  of a numeric variable.  It is coded as follows:                   *          
+*                                                                    *          
+*                      pack(num,plng)                                *          
+*                                                                    *          
+*  where "num" is the number to be converted and "plng" is the       *          
+*  length of the packed result that is to be returned.               *          
+*                                                                    *          
+*  The number to be packed can contain punctuation (comma, period,   *          
+*  and/or minus sign).  If it contains any character that is not     *          
+*  numeric or valid punctuation, the packed value is not returned.   *          
+*  Instead, the value returned will be an unpacked number that       *          
+*  indicates the position of the first invalid character.  Thus,     *          
+*  the value returned will be one or more characters in the range    *          
+*  of hex F0 through F9.                                             *          
+*                                                                    *          
+*  If the number to be packed contains a minus sign (-) anywhere in  *          
+*  its string of characters, the packed value returned will be       *          
+*  negative.                                                         *          
+*                                                                    *          
+*  If the number to be packed contains any invalid character, the    *          
+*  value returned will be null.                                      *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+***11/05/89 Re-write to use x2c for conversion to packed format.     *          
+*1* 10/20/90 JTM001                                                  *          
+    Remove + sign from input, in addition to minus, period, & comma. *          
+                                                                     *          
+*********************************************************************/          
+arg num,plng                                                                    
+    if pos('-',num)>0 then neg='Y'                                              
+/* Convert plus sign, minus sign, period, and comma to blank */ /*1*/           
+    num=translate(num,'    ','+-,.')                            /*1*/           
+/* Remove blanks */                                                             
+    num=space(num,0)                                                            
+/* Now see if number has any invalid characters */                              
+/* Null is returned if number is invalid */                                     
+    pval=''                                                                     
+    if verify(num,'0123456789')/=0 then signal error                            
+/* Add leading zeroes */                                                        
+    num=right(num,2*plng-1,'0')                                                 
+/* Insert sign */                                                               
+    if neg='Y' then sign='D'; else sign='C'                                     
+    num=num||sign                                                               
+/* Convert to packed value */                                                   
+    pval=x2c(num)                                                               
+error:                                                                          
+return pval                                                                     

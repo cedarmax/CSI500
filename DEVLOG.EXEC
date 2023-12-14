@@ -1,0 +1,55 @@
+/* DEVLOG - Write log message to CSI.DEVLOG.               01/12/90  *          
+*                                                                    *          
+*  Use DEVLOG to write messages to SQL table CSI.DEVLOG for the      *          
+*  purpose of tracking program development activites, or listing     *          
+*  the content of CSI.DEVLOG, as follows:                            *          
+*                                                                    *          
+*      DEVLOG command parm time('E') (option                         *          
+*                                                                    *          
+*      command:  The command code (usually the name of the exec      *          
+*                that is being tracked) to be recorded.              *          
+*                                                                    *          
+*         parm:  The paramater used with the command code.  For      *          
+*                example, if the command code is RPGC to compile     *          
+*                a program, the parameter would be the name of       *          
+*                the program.                                        *          
+*                                                                    *          
+*    time('E'):  Elapsed time.  This parameter must be exactly as    *          
+*                shown ("time('E')"), without substitution.          *          
+*                                                                    *          
+*       option:  Option can be used to specify WHERE and/or ORDER BY *          
+*                clauses when the list option is used (no command    *          
+*                code is specified).  The SQL column names that can  *          
+*                be specified are COMMAND, PARM, USERID, DATE, TIME, *          
+*                and RUNTIME.                                        *          
+*                                                                    *          
+*  The elapsed time is recorded in CSI.DEVLOG using the elapsed time *          
+*  clock.  Therefore, the clock must be reset at the beginning of    *          
+*  the exec that issues the DEVLOG command.  The clock can be reset  *          
+*  by using the REXX function time('R') in a command, such as        *          
+*  "x=time('R')".                                                    *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg cmd parm time '('option                                                     
+   if cmd='' then do                                                            
+    'RXSELECT * FROM CSI.DEVLOG 'option                                         
+     exit                                                                       
+   end                                                                          
+   if left(userid(),5)='BATCH' then 'GLOBALV GET USERID'                        
+   else userid=userid()                                                         
+   time=time%1                    /*Convert time to integer*/                   
+   min=right(time%60,2,'0')                                                     
+   hr=right(min%60,2,'0')                                                       
+   sec=right(time//60,2,'0')                                                    
+   time=left(time(),5)                                                          
+   runtime=hr':'min':'sec                                                       
+  'QUERY CMSTYPE (LIFO'                                                         
+   pull . . cmst                                                                
+  'SET CMSTYPE HT'                                                              
+  "RXSQLEX INSERT INTO CSI.DEVLOG (COMMAND,PARM,USERID,DATE,TIME,RUNTIME)       
+   VALUES ('"cmd"','"parm"','"userid"','"date(O)"','"time"','"runtime"')"       
+  'SET CMSTYPE 'cmst                                                            
+exit                                                                            

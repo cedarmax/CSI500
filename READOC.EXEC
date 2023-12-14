@@ -1,0 +1,65 @@
+/* READOC - Read document from CSI.DOCUMENT; write CMS file  11/18/89*          
+*                                                                    *          
+*             READOC  campus name fileid                             *          
+*                     |      |    |_Optional parm to specify the     *          
+*                     |      |      CMS file name.  The default      *          
+*                     |      |      filename is "name READOC A'.     *          
+*                     |      |                                       *          
+*                     |      |                                       *          
+*                     |      |_ Document name - usually the same     *          
+*                     |         as a command code.                   *          
+*                     |                                              *          
+*                     |_ Campus or organization (3 characters).      *          
+*                                                                    *          
+*  Use this exec to extract a document from SQL table CSI.DOCUMENT   *          
+*  and write it to a CMS file.  Documents are identified by the      *          
+*  following SQL columns in CSI.DOCUMENT:                            *          
+*                                                                    *          
+*           CAMPUS       3-Character campus or organization code.    *          
+*           DOCUMENT_ID  5-Character code that identifies the        *          
+*                        application that the document is used with. *          
+*           LINE_NUMBER  3-digit decimal number indicating the       *          
+*                        number in the document for each SQL row     *          
+*                        for that document.                          *          
+*                                                                    *          
+*  If the CMS file name is not specified, the output is written to   *          
+*  a file named "name READOC A", where "name" is the value of the    *          
+*  document name parm.                                               *          
+*  If the specified document does not exist, the output file is      *          
+*  written with one null record.                                     *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 11/18/89 If document does not exist, a non-zero code is returned,*          
+*            causing the batch exec to terminate.  Fixed by making   *          
+*            the return code zero in either case.  If the document   *          
+*            does not exist, write a null record to the output file. *          
+*                                                                    *          
+*2* 11/20/89 RXSQL won't work if DOS is ON.  Added DOS OFF and       *          
+*            DOS RESTORE.  Also added SET CMSTYPE RT if disconnected *          
+*            so messages will be written to console file for batch   *          
+*            jobs.                                                   *          
+*                                                                    *          
+*********************************************************************/          
+arg cmp doc fileid                                                              
+    if fileid='' then fileid=doc' READOC A'                     /*1*/           
+    if disc()=1 then 'SET CMSTYPE RT'                           /*2*/           
+    else 'SET CMSTYPE HT'                                       /*2*/           
+   'ERASE 'fileid                                               /*1*/           
+   'DOS OFF'                                                    /*2*/           
+   "RXSQL PREP READ SELECT TEXT,LINE_NUMBER FROM CSI.DOCUMENT WHERE             
+    CAMPUS='"cmp"' AND DOCUMENT_ID='"doc"' ORDER BY LINE_NUMBER"                
+   'RXSQL OPEN READ'                                                            
+    if sqlcode=0 then do while sqlcode=0                                        
+     'RXSQL FETCH READ INTO LINE NUMBER'                                        
+      if sqlcode=0 then,                                        /*1*/           
+        'EXECIO 1 DISKW 'fileid' 0 F 80 (VAR LINE FINIS'        /*1*/           
+    end                                                                         
+   'STATE 'fileid                                               /*1*/           
+    if rc>0 then do                                             /*1*/           
+      line=copies(' ',80)                                       /*1*/           
+     'EXECIO 1 DISKW 'fileid' 0 F 80 (VAR LINE FINIS'           /*1*/           
+    end                                                         /*1*/           
+   'RXSQL PURGE *'                                                              
+   'DOS RESTORE'                                                /*2*/           
+exit                                                                            

@@ -1,0 +1,74 @@
+/* DUPTABLE - Create SQL table identical to existing table.  12/16/89 *         
+*                                                                     *         
+*  Use DUPTABLE to create a new SQL table that has the same column    *         
+*  definitions as an existing table, as follows:                      *         
+*                                                                     *         
+*       DUPTABLE existing new dbspace                                 *         
+*                |        |   |                                       *         
+*                |        |   |_Name of the DBspace for the new table.*         
+*                |        |                                           *         
+*                |        |_Name of the new table to be created.      *         
+*                |                                                    *         
+*                |_Name of the existing table to be duplicated        *         
+*                                                                     *         
+*  If table names are not specified with a creator, CSI will be       *         
+*  used as the ceator.                                                *         
+*                                                                     *         
+*1* 01/21/90 This exec is no longer needed because its functions can  *         
+*            be performed by SQLTABLE (to create an SQLTABLE file)    *         
+*            and CRTABLE (to read the SQLTABLE file and create a      *         
+*            table).                                                  *         
+*                                                                     *         
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+***********************************************************************         
+*                                                                     *         
+**********************************************************************/         
+arg old new dbs                                                                 
+   if pos('.',old)=0 then do                                                    
+     ocreator='CSI'                                                             
+     otname=old                                                                 
+     old='CSI.'old                                                              
+   end                                                                          
+   else parse var old ocreator '.' otname                                       
+say ocreator otname old                                                         
+   if pos('.',new)=0 then do                                                    
+     ncreator='CSI'                                                             
+     ntname=new                                                                 
+     new='CSI.'new                                                              
+   end                                                                          
+   else parse var new ncreator '.' ntname                                       
+   sqlcode=0                                                                    
+  'DOS OFF'                                                                     
+  'SET CMSTYPE RT'                                                              
+   ast=copies('*',80)                                                           
+   dash=copies('-',80)                                                          
+signal on error                                                                 
+   s1="SELECT CNAME,COLNO,COLTYPE,LENGTH FROM SYSTEM.SYSCOLUMNS"                
+   s2="WHERE CREATOR='"ocreator"' AND TNAME='"otname"' ORDER BY COLNO"          
+  'RXSQL PREP READ 's1 s2                                                       
+  'RXSQL OPEN READ'                                                             
+signal off error                                                                
+   s='CREATE TABLE 'ncreator'.'ntname' ('                                       
+   do while sqlcode=0                                                           
+    'RXSQL FETCH READ INTO CNAME COLNO COLTYPE LENGTH'                          
+     if sqlcode=0 then do                                                       
+       cname=strip(cname)                                                       
+       coltype=strip(coltype)                                                   
+       length=strip(length)                                                     
+       if coltype='CHAR' then length='('length')'                               
+       s=s||cname coltype||length','                                            
+     end                                                                        
+   end                                                                          
+   s=strip(s,T,',')                                                             
+   s=s' ) IN 'dbs                                                               
+   say s                                                                        
+signal on error                                                                 
+  'RXSQLEX 's                                                                   
+error:                                                                          
+   ret=sqlcode                                                                  
+   if sqlcode=100 then ret=0                                                    
+   if ret/=0 then say 'SQLCODE='sqlcode' SQLERRM=' sqlerrm                      
+  'RXSQL PURGE READCAT'                                                         
+  'RXSQL PURGE READINX'                                                         
+  'RXSQL ROLLBACK WORK'                                                         
+exit ret                                                                        

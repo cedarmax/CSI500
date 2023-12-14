@@ -1,0 +1,126 @@
+/* INSPAN - Install panel programs on a minidisk           09/02/89  *          
+*                                                                    *          
+*  Use INSPAN to execute RPG panel programs to create SQL access     *          
+*  modules, SQLSTMT files, and SQLDA files, as follows:              *          
+*                                                                    *          
+*              INSPAN 520 code1 code2 . . . . . . . . .              *          
+*                     |   |                                          *          
+*                     |   |_Command code(s) to be installed.         *          
+*                     |     If not specified, all command            *          
+*                     |     codes will be included.                  *          
+*                     |                                              *          
+*                     |_ Virtual address of disk on which the        *          
+*                        DOSLIB files are located.                   *          
+*                                                                    *          
+* 06/16/89 Display list of programs, & prompt to proceed only if     *          
+*          command codes are not entered.                            *          
+*                                                                    *          
+* 09/02/89 Added browse of INSPAN LIST after install is complete.    *          
+*          This is executed only if virtual machine is not           *          
+*          disconnected.                                             *          
+*                                                                    *          
+*1* 01/01/90 Don't access disk as A because this releases access to  *          
+*            191 disk, which contains files (ARISRMBT MODULE) that   *          
+*            are apparently needed with VM Rel. 6.  Instead, use     *          
+*            GETFMADDR to get an available file mode letter.         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg disk cmds                                                                   
+parse source . . $ .                                                            
+    if disk='' then do                                                          
+      say 'DISK VIRTUAL ADDRESS MUST BE SPECIFIED - '$' TERMINATED'             
+      signal end                                                                
+    end                                                                         
+/* See if specified disk is already access R/W; if so, use same mode */         
+    ml=''                                                       /*1*/           
+   'SADT *'                                                     /*1*/           
+    do queued()                                                 /*1*/           
+      parse pull . . . addr md . . . . rw                       /*1*/           
+      if addr=disk & rw='R/W' then ml=md                        /*1*/           
+    end                                                         /*1*/           
+/* Get first available file mode letter if needed  */           /*1*/           
+    if ml='' then do                                            /*1*/           
+     'GETFMADR'                                                 /*1*/           
+      pull . ml .                                               /*1*/           
+      newmode='Y'                                               /*1*/           
+    end                                                         /*1*/           
+address COMMAND                                                                 
+   'EXEC SETMSG  ON'                                                            
+    if newmode='Y' then 'ACCESS 'disk ml                        /*1*/           
+    if rc /= 0 then do                                                          
+      say 'ERROR ON ACCESS FOR DISK 'disk' - '$' TERMINATED'                    
+      signal end                                                                
+    end                                                                         
+   'ERASE CMS EXEC A'                                                           
+    if cmds='' then do                                                          
+      cmds='*'                                                                  
+      say 'PROGRAMS TO BE INSTALLED:'                                           
+    end                                                                         
+    else parms='YES'                                                            
+    do until cmds=''                                                            
+      parse upper var cmds cmd cmds                                             
+     'LISTFILE 'cmd' DOSLIB 'ml' (STACK'                        /*1*/           
+    end                                                                         
+    queue 'ENDOFQUEUE'                                                          
+ L1="/*              */ 'ERASE "$" LIST "ml"'"                  /*1*/           
+    call write 1                                                                
+    type='DOSLIB'                                                               
+    qty = 0                                                                     
+    do while type='DOSLIB'                                                      
+      parse pull pgm type .                                                     
+      pan=0                                                                     
+/* FIND PANEL PROGRAMS BY LOOKING FOR 'P      FT0' IN DOSLIB     */             
+      if type='DOSLIB' then do while pan=0                                      
+       'EXECIO 1 DISKR 'pgm' DOSLIB 'ml' (VAR TEXTREC'          /*1*/           
+        if rc = 0 then pan=pos('P       FT0',textrec)                           
+        else pan=-1                                                             
+      end                                                                       
+      if pan>0 then do                                                          
+        qty=qty+1                                                               
+      if parms/='YES' then say pgm                                              
+ L1="'ERASE "pgm" SQLSTMT *'"                                   /*1*/           
+ L2=" msg='RUN "pgm"==============================================='"           
+ L3="'EXECIO 1 DISKW "$" LIST "ml" (VAR MSG'"                   /*1*/           
+ L4="'RUNDOS "pgm" "ml"'"                                       /*1*/           
+ L5=" msg='============================END OF SQLMGR FILE FOR "pgm"'"           
+ L6="'EXECIO 1 DISKW SQLMGR ERROR A (FINIS VAR MSG'"            /*1*/           
+ L7="'FINIS "$" LIST "ml"'"                                     /*1*/           
+ L8="'COPYFILE SQLMGR ERROR A "$" LIST "ml" (APPEND'"           /*1*/           
+ L9="'FINIS "$" LIST "ml"'"                                     /*1*/           
+L10="'ERASE SQLMGR ERROR A'"                                                    
+L11="'SET DOS OFF'"                                                             
+        if userid()='CSI' then do                                               
+L12="'RXSQLEX GRANT RUN ON CSI."pgm" TO PUBLIC'"                                
+L13=" if rc/=0 then msg='***SQL RUN AUTHORITY NOT GRANTED FOR "pgm"'"           
+L14=" else msg='SQL RUN AUTHORITY GRANTED FOR "pgm"'"                           
+L15="'EXECIO 1 DISKW "$" LIST "ml" (VAR MSG'"                  /*1*/            
+          call write 15                                                         
+        end                                                                     
+        else call write 11                                                      
+      end                                                                       
+    end                                                                         
+   'FINIS CMS EXEC A'                                                           
+    if qty = 0 then say 'NO PANEL PROGRAM DOSLIBS FOUND ON DISK 'disk           
+    else do                                                                     
+      if parms/='YES' then do                                                   
+        say qty 'PANEL PROGRAMS ON DISK 'disk' WILL BE INSTALLED.'              
+        say 'ENTER "YES" TO PROCEED'                                            
+        pull answer                                                             
+        if answer/='YES' then signal end                                        
+      end                                                                       
+     'EXEC CMS'                                                                 
+     'EXECIO * CP (STRING QUERY CONSOLE'                                        
+      pull cons                                                                 
+      if pos('DISC',cons)=0 then 'BROWSE '$' LIST 'ml           /*1*/           
+     'EXEC MTSTACK'                                                             
+    end                                                                         
+end:                                                                            
+    if newmode='Y' then 'RELEASE 'ml                            /*1*/           
+exit                                                                            
+write:                                                                          
+    arg n                                                                       
+   'EXECIO 'n' DISKW CMS EXEC A (STEM L'                                        
+return                                                                          

@@ -1,0 +1,31 @@
+/* RB - Test Batch EXEC in programmer environment          06/14/89  *          
+*                                                                    *          
+*  Use RB to test a batch exec without submitting it to VM BATCH.    *          
+*  The exec runs locally on your virtual machine.                    *          
+*                                                                    *          
+*             RB code  md  U1 . . . . . . U8                         *          
+*                |     |   |                                         *          
+*                |     |   |_U-Indicators to be set on.              *          
+*                |     |                                             *          
+*                |     |_2-digit minidisk address.                   *          
+*                |                                                   *          
+*                |_Command code of the batch exec to be tested;      *          
+*                  Do not include $ suffix.                          *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+* 06/14/89 Changed to call SUBMIT exec, which calls CSIBATCH.  Thus, *          
+*          the job should run exactly as it would on a batch         *          
+*          machine.  The batch console file is displayed on the      *          
+*          screen, as well as being spooled to the reader.  Files    *          
+*          normally sent by CSIBATCH are also spooled.  As with any  *          
+*          normal batch job, a job number is assigned and batch      *          
+*          job status is displayed by BJB.                           *          
+*                                                                    *          
+*********************************************************************/          
+arg job uind                                                                    
+    parse var uind md .                                                         
+    if left(md,1)<'0' then md='00'                                              
+   'GLOBALV SET MINIDISK 'md                                                    
+   'SUBMIT 'job uind' ('userid()                                                
+exit                                                                            

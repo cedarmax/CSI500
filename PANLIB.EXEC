@@ -1,0 +1,101 @@
+/**PANLIB - Install PANEL definition in PANEL MACLIB       12/08/90  *          
+*                                                                    *          
+*  Use PANLIB to pre-process a PANEL file and install the panel      *          
+*  definition in PANEL MACLIB on the same mini-disk.                 *          
+*                                                                    *          
+*                PANLIB disk name                                    *          
+*                       |    |                                       *          
+*                       |    |_ Filename of PANEL file.              *          
+*                       |       If name is not specified, all PANEL  *          
+*                       |       files on the disk will be processed. *          
+*                       |                                            *          
+*                       |_ Virtual address of the disk on which the  *          
+*                          files to be processed are located.        *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*0* 00/00/00                                                         *          
+*********************************************************************/          
+TRACE 'O'                                                                       
+Arg disk name                                                                   
+Parse source . . $ .                                                            
+   if disk='' then do                                                           
+     say 'DISK VIRTUAL ADDRESS MUST BE SPECIFIED - '$' TERMINATED'              
+     signal end                                                                 
+   end                                                                          
+/* See if specified disk is already access R/W; if so, use same mode */         
+   ml=''                                                                        
+  'SADT *'                                                                      
+   do queued()                                                                  
+     parse pull . . . addr md . . . . rw                                        
+     if addr=disk & rw='R/W' then ml=md                                         
+   end                                                                          
+/* Get first available file mode letter if needed  */                           
+   if ml='' then do                                                             
+    'GETFMADR'                                                                  
+     pull . ml .                                                                
+     newmode='Y'                                                                
+   end                                                                          
+   if newmode='Y' then 'ACCESS 'disk ml                                         
+   if rc /= 0 then do                                                           
+     say 'ERROR ON ACCESS FOR DISK 'disk' - '$' TERMINATED'                     
+     signal end                                                                 
+   end                                                                          
+   if name='' then do                                                           
+     say 'NO NAME SPECFIED; ALL PANEL FILES ON DISK 'disk' WILL BE PROCESSED.'  
+     say 'Enter ALL to continue.'                                               
+     pull answer                                                                
+     if answer/='ALL' then signal end                                           
+     name='*'                                                                   
+   end                                                                          
+/* Copy the following lines by using value of sourceline() and sigl    */       
+   signal textend                                                               
+   /* $PANLIB EXEC */                                                           
+   arg disk ml names                                                            
+   i=0                                                                          
+   do until names=''                                                            
+     i=i+1                                                                      
+     parse var names nam.i names                                                
+   end                                                                          
+   do j=1 to i                                                                  
+     if exist(nam.j' PANEL 'ml)=1 then do                                       
+       address ISPEXEC 'SELECT PGM(ISPPREP)',                                   
+              'PARM(INPAN('nam.j' PANEL 'ml'),',                                
+              'OUTPAN(PANEL MACLIB =),REPLACE) NEWAPPL'                         
+       if rc=0 | nam.j='*' then install='YES'                                   
+       else if nam.j/='*'then do                                                
+         say nam.j 'PANEL NOT INSTALLED; ISPPREP RC='rc'.'                      
+         if rc=4 then say copies(' ',length(nam.j)),                            
+        'PANEL DEFINITION VIOLATES RESTRICTIONS FOR PREPROCESSED PANELS.'       
+         if rc=8 then say copies(' ',length(nam.j)),                            
+        'SYNTAX ERROR IN PANEL DEFINITION.'                                     
+       end                                                                      
+     end                                                                        
+     else do                                                                    
+       say nam.j 'PANEL NOT INSTALLED.'                                         
+       say copies(' ',length(nam.j)),                                           
+      'PANEL FILE NOT FOUND ON DISK 'disk'.'                                    
+     end                                                                        
+   end                                                                          
+   if install='YES' then do                                                     
+     say 'COMPRESSING PANEL MACLIB.'                                            
+    'MACLIB COMP PANEL'                                                         
+   end                                                                          
+   exit 4                                                                       
+textend:                                                                        
+     startcopy=sigl+1                                                           
+     signal copy                                                                
+copy:                                                                           
+     endcopy=sigl-3                                                             
+     do i=startcopy to endcopy                                                  
+       line=sourceline(i)                                                       
+       call write                                                               
+     end                                                                        
+    'CSISPF CMD($PANLIB 'disk ml name') CMS'                                    
+end:                                                                            
+stop:                                                                           
+   if newmode='Y' then 'RELEASE 'ml                                             
+exit                                                                            
+write:                                                                          
+  'EXECIO 1 DISKW $PANLIB EXEC A3 (FINIS STRING' line                           
+return                                                                          

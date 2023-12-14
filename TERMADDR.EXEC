@@ -1,0 +1,14 @@
+/* TERMADDR - REXX Function to return terminal address.      09/03/90*          
+*                                                                    *          
+*  This function is used without any parameters to return the        *          
+*  user's terminal address, as follows:                              *          
+*                                                                    *          
+*                      termaddr()                                    *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*0*                                                                  *          
+*********************************************************************/          
+  'EXECIO * CP (STRING QUERY 'userid()                                          
+   parse pull . '-' termaddr .                                                  
+return termaddr                                                                 

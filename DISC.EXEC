@@ -1,0 +1,35 @@
+/* DISC  -  REXX function to determine whether the user's  11/04/89  *          
+*           virtual machine is disconnected.                         *          
+*                                                                    *          
+*  This is an external function which returns a value of 1 if the    *          
+*  user's virtual machine is disconnected, and a value of 0 if it    *          
+*  is not disconnected.  It is coded as follows:                     *          
+*                                                                    *          
+*                       disc()                                       *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1*  10/03/90  JTM001                                                *          
+     If there is anything on the stack when this exec is called, it  *          
+     is changed because the EXECIO CP command stacks FIFO.  Also,    *          
+     the pull gets the wrong token from the stack (the one that was  *          
+     on the top of the stack) and the result of the CP command is    *          
+     on the bottom of the stack.  Fixed by changing to LIFO.  Also   *          
+     added MAKEBUF and DROPBUF, which should prevent similar         *          
+     problems if future changes are made.  This problem affected     *          
+     the operation of posting programs that do not call SQLMGR until *          
+     POST is called.  Because POST calls the FILE exec which in turn *          
+     calls the DOS exec, which calls the DISC exec, the values       *          
+     pushed on the stack for the SQLMGR were changed to the user ID. *          
+     This caused SQLMGR to create an access module named CSI.UserID, *          
+     and to try to read CMS files whose file name was UserID instead *          
+     of the program name, which was expected to be on the stack.     *          
+                                                                     *          
+*********************************************************************/          
+   'MAKEBUF'                                                    /*1*/           
+   'EXECIO * CP (LIFO STRING QUERY USER 'userid()               /*1*/           
+    parse pull . .  disc                                                        
+   'DROPBUF'                                                    /*1*/           
+    if disc='DSC' then return 1                                                 
+    else return 0                                                               
+exit                                                                            

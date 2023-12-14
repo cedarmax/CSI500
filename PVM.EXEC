@@ -1,0 +1,59 @@
+/* PVM     - Invoke PVM to log on to a remote site.        01/27/90  *          
+*                                                                    *          
+*  Use PVM to passthru to a remote site without using the PASSTHRU   *          
+*  command, as follows:                                              *          
+*                         PVM  site                                  *          
+*                              |                                     *          
+*                              |_Name or site number of remote site. *          
+*                                If a number is used, it can be one  *          
+*                                or two digits, and must refer to    *          
+*                                a site number that exists in the    *          
+*                                CMS file NODE NAMES, which should   *          
+*                                reside on the CSI 191 minidisk.     *          
+*                                The NODE NAMES file contains site   *          
+*                                numbers in Cols. 1-2 of each record,*          
+*                                followed by the site name in Cols.  *          
+*                                3-10.  Single-digit site numbers    *          
+*                                must have a leading zero in the     *          
+*                                NODE NAMES file.                    *          
+*                                                                    *          
+*  The following function keys will be active during the session:    *          
+*                                                                    *          
+*  PF13 - Write 24 lines from the screen to CMS file PASSTHRU DATA A.*          
+*         These lines will be appended to the file if it exists.     *          
+*                                                                    *          
+*  PF14 - Temporarily disconnect from the session.  It will resume   *          
+*         with the same screen content when you issue PVM again.     *          
+*         You do not need to specify a site number with PVM to       *          
+*         resume the session; if you do specify a site, it will be   *          
+*         ignored.  While your remote session is suspended, the      *          
+*         remote session's virtual machine will remain logged on.    *          
+*                                                                    *          
+*  PF15 - End the session by disconnecting.  The remote session's    *          
+*         virtual machine will then be in a disconnected state.      *          
+*                                                                    *          
+**********************************************************************          
+*1* 08/20/90 Added DOS OFF and RESTORE; apparently PASSTHRU won't    *          
+*            work with DOS on.                                       *          
+*********************************************************************/          
+arg site                                                                        
+  'DOS OFF'                                                     /*1*/           
+  'ID (STACK'                                                                   
+   pull . . node .                                                              
+   if site='' then site=node                                                    
+   else do                                                                      
+     siteno=right(site,2,'0')                                                   
+     if siteno<'00' then signal passthru                                        
+    'EXECIO * DISKR NODE NAMES A 1 (FIND /'siteno'/ FINIS'                      
+     if rc/=0 then do                                                           
+       say siteno' is not in NODE NAMES file; PVM terminated.'                  
+       exit                                                                     
+     end                                                                        
+     pull .                                                                     
+     pull line                                                                  
+     site=substr(line,3,8)                                                      
+   end                                                                          
+passthru:                                                                       
+  'PASSTHRU 'site' * * 13 24 * PF14 PF15'                                       
+  'DOS RESTORE'                                                 /*1*/           
+exit                                                                            

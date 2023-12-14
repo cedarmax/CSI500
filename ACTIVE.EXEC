@@ -1,0 +1,32 @@
+/* ACTIVE - REXX function to determine if a virtual        08/01/89  *          
+*           machine is active (not logged off).                      *          
+*                                                                    *          
+*  This is an external function which returns a value of zero if     *          
+*  the specified user ID logged off, and a value of 1 if it is       *          
+*  either logged on or operating disconnected.  The function is      *          
+*  coded as follows:                                                 *          
+*                                                                    *          
+*                     active(id)                                     *          
+*                                                                    *          
+*  where the parentheses contain a literal user ID or the name of a  *          
+*  variable whose value is a user ID.                                *          
+*                                                                    *          
+*  Examples of the use of this function are as follows:              *          
+*                                                                    *          
+*        if active(userid)=0                                         *          
+*                                                                    *          
+*        if active('PAYROLL')=0                                      *          
+*                                                                    *          
+*  In each of the above examples, the condition is satisfied if the  *          
+*  user ID is not active (logged off).                               *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg userid                                                                      
+   'EXECIO 1 CP (STRING QUERY 'userid                                           
+    parse upper pull result                                                     
+    if find(result,'NOT LOGGED ON')=0 then return 1                             
+    else return 0                                                               
+exit                                                                            

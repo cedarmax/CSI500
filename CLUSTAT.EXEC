@@ -1,0 +1,77 @@
+/**CLUSTAT - Display cluster status of CSI SQL tables.       12/09/89 *         
+*                                                                     *         
+*  Use CLUSTAT to display a list of the names of SQL data tables      *         
+*  that are used by CSI software, and that are not clustered.         *         
+*  A table is considered to be un-clustered when the CLUSTER value    *         
+*  shown in SYSTEM.SYSINDEXES if W for the clustering inedex (the     *         
+*  first index that was created).  Tables for which the CLUSTER code  *         
+*  is not F or W do not have a clustering index.  Such tables will be *         
+*  identified by a message in the list.  Tables which are empty (no   *         
+*  rows) are always un-clustered and cannot be re-clustered until at  *         
+*  least one row is added.  Such tables are identified by a message   *         
+*  in the list.                                                       *         
+*                                                                     *         
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+***********************************************************************         
+*                                                                     *         
+**********************************************************************/         
+arg names                                                                       
+trace 'O'                                                                       
+signal off error                                                                
+   sqlcode=0                                                                    
+  'DOS OFF'                                                                     
+  'SET CMSTYPE RT'                                                              
+   ast=copies('*',80)                                                           
+   dash=copies('-',80)                                                          
+/***********************************************************************        
+   Status records can be selected by UNION statement below, but time            
+   for OPEN is 1 minute; therefore, another method is used.                     
+   s1="SELECT A.TNAME,ROWCOUNT,CLUSTER,'C'"                                     
+   s2="FROM SYSTEM.SYSCATALOG A, SYSTEM.SYSINDEXES B WHERE"                     
+   s3="A.CREATOR='CSI' AND A.CREATOR=B.CREATOR AND A.TNAME=B.TNAME"             
+   s4="AND (CLUSTER='F' OR CLUSTER='W')"                                        
+   s5="UNION SELECT A.TNAME,ROWCOUNT,CLUSTERTYPE,'N'"                           
+   s6="FROM SYSTEM.SYSCATALOG A WHERE"                                          
+   s7="TNAME NOT IN (SELECT TNAME FROM SYSTEM.SYSINDEXES WHERE"                 
+   s8="TNAME=A.TNAME AND CLUSTER^='F' AND CLUSTER^='W')"                        
+*********************************************************************/          
+   s1="SELECT TNAME,ROWCOUNT FROM SYSTEM.SYSCATALOG"                            
+   s2="WHERE CREATOR='CSI' ORDER BY TNAME"                                      
+  'RXSQL PREP READCAT 's1 s2                                                    
+  'RXSQL OPEN READCAT'                                                          
+   s1="SELECT CLUSTER FROM SYSTEM.SYSINDEXES WHERE CREATOR='CSI'"               
+   s2="AND TNAME=? AND (CLUSTER='F' OR CLUSTER='W')"                            
+  'RXSQL PREP READINX 's1 s2                                                    
+   qty=0                                                                        
+   do while sqlcode=0                                                           
+    'RXSQL FETCH READCAT INTO TNAME ROWCOUNT'                                   
+     if sqlcode=0 then qty=qty+1                                                
+     t.qty=tname                                                                
+     r.qty=rowcount                                                             
+   end                                                                          
+  'CLRSCRN'                                                                     
+   say 'TABLE                  NO. ROWS         CLUSTER'                        
+   say '-----                  --------         -------'                        
+   do i=1 to qty                                                                
+     tname=left(t.i,20)                                                         
+     rowcount=right(r.i,10)                                                     
+    'RXSQL OPEN READINX USING T.I'                                              
+    'RXSQL FETCH READINX INTO CLUSTER'                                          
+     if sqlcode/=0 then status='NO CLUSTERING INDEX'                            
+     else do                                                                    
+       if cluster='W' then status='---------->'cluster                          
+       else status=right(cluster,12)                                            
+     end                                                                        
+     if rowcount=0 then status='---EMPTY-->'cluster                             
+     else empty=''                                                              
+     say tname rowcount status empty                                            
+   end                                                                          
+stop:                                                                           
+   sqlcode=0                                                                    
+error:                                                                          
+   ret=sqlcode                                                                  
+   if ret/=0 then say 'SQLCODE='sqlcode' SQLERRM=' sqlerrm                      
+  'RXSQL PURGE READCAT'                                                         
+  'RXSQL PURGE READINX'                                                         
+  'RXSQL ROLLBACK WORK'                                                         
+exit ret                                                                        

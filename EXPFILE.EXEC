@@ -1,0 +1,53 @@
+/**EXPFILE - Run SQLMGR program to create a CMS file of    01/24/90  *          
+*            SQL SELECT statements created by SQLMGR.                *          
+*                                                                    *          
+* Use EXPFILE to execute an RPG program that includes SQLMGR in      *          
+* order to create a CMS file containing all SELECT statements that   *          
+* are prepared by SQLMGR for the access module for the RPG program.  *          
+* The resulting file can be processed by the EXPLAIN exec to invoke  *          
+* the SQL EXPLAIN function.  EXPFILE is called as follows:           *          
+*                                                                    *          
+*           EXPFILE pgmname                                          *          
+*                   |                                                *          
+*                   |_Name of program to be processed.  The TEXT     *          
+*                     file for this program must be on a disk that   *          
+*                     is currently accessed.                         *          
+*                                                                    *          
+* The SELECT file contains all SELECT statements used in the         *          
+* program.  Each statement is preceded by a line of asterisks.       *          
+* INSERT, DELETE, and UPDATE statements are not included.            *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg pgm                                                                         
+/* Read TEXT file to determine of it references SQLMGR; if so, it               
+   will contain SQLKEY.  */                                                     
+  'EXECIO * DISKR 'pgm' TEXT A 1 (LOCATE /PANMGR/ FINIS'                        
+   if queued()=0 then do                                                        
+    'EXECIO * DISKR 'pgm' TEXT A 1 (LOCATE /SQL/ FINIS'                         
+     if queued()/=0 then do                                                     
+       type='S'                                                                 
+       name=pgm                                                                 
+      'MTSTACK'                                                                 
+     end                                                                        
+   end                                                                          
+   else do                                                                      
+     type='P'                                                                   
+     name=justify(pgm '?',8)                                                    
+    'MTSTACK'                                                                   
+   end                                                                          
+   if type/='S' & type/='P' then do                                             
+     say pgm' does not use SQLMGR.'                                             
+     exit                                                                       
+   end                                                                          
+   if exist(pgm 'SELECT A')=1 then 'ERASE 'pgm' SELECT A'                       
+  'SET CMSTYPE HT'                                                              
+   push '?'                                                                     
+   push name                                                                    
+   if type='S' then 'LOAD SQLMGR 'pgm' (RESET SQLMGR'                           
+   if type='P' then 'LOAD SQLMGR ARIRVSTC 'pgm' (RESET PANMGR'                  
+  'START'                                                                       
+  'FINIS 'pgm' SELECT'                                                          
+exit                                                                            

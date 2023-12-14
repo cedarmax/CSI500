@@ -1,0 +1,34 @@
+/* EXIST  - REXX function to test for the existence of     08/01/89  *          
+*           a specified CMS file.                                    *          
+*                                                                    *          
+*  This is an external function which returns a value of zero if     *          
+*  the specified CMS file does not exist, and a value of 1 if the    *          
+*  file does exist.  It is coded as follows:                         *          
+*                                                                    *          
+*                      exist(fileid)                                 *          
+*                                                                    *          
+*  where the parentheses contain a literal file name or the name of  *          
+*  a variable whose value is a file name.                            *          
+*                                                                    *          
+*  Examples of the use of this function are as follows:              *          
+*                                                                    *          
+*         if exist(fname ftype fmode)=0                              *          
+*                                                                    *          
+*         if exist('INPUT1 DATA A')=0                                *          
+*                                                                    *          
+*         if exist(fileid)=0                                         *          
+*                                                                    *          
+*  In each of the above examples, the condition is satisfied if the  *          
+*  file does not exist.                                              *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 05/26/90 Don't display messages from STATE.                      *          
+*********************************************************************/          
+arg name                                                                        
+   'SETMSG OFF'                                                   /*1*/         
+   'STATE 'name                                                                 
+    if rc=0 then code=1                                                         
+    else code=0                                                                 
+   'SETMSG'                                                       /*1*/         
+return code                                                                     

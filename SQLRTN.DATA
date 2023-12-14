@@ -1,0 +1,11 @@
+SQLTABLE  1 SELECT-                                                                         
+SQLTABLE  2 GRANTEE,-                                                                       
+SQLTABLE  3 STNAME-                                                                         
+SQLTABLE  4 FROM SYSTEM.SYSTABAUTH-                                                         
+SQLTABLE  5 WHERE STNAME='&1' AND GRANTEE<> 'PUBLIC' AND GRANTEE<>'CSI'                     
+SQLTABLE  6 FORMAT COL 1 NAME 'PROGRAM'                                                     
+SQLTABLE  7 FORMAT COL 2 NAME 'SQL TABLE'                                                   
+SQLTABLE  8 FORMAT TTITLE-                                                                  
+SQLTABLE  9 'SQLTABLE     LIST SQL TABLES CONTAINED IN RPG PROGRAMS                        '
+SQLTABLE 10 PRINT                                                                           
+SQLTABLE 11 END                                                                             

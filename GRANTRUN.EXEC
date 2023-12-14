@@ -1,0 +1,90 @@
+/* GRANTRUN - Grant RUN authority for SQL access modules   02/28/89  *          
+*                                                                    *          
+*  Use GRANTRUN to grant run authority for all SQL access modules    *          
+*  that have been created by RPG programs that use SQL and           *          
+*  reside on a specified minidisk, as follows:                       *          
+*                                                                    *          
+*              GRANTRUN vaddr code1 code2 . . . . . . . . . .        *          
+*                       |     |_Names of RPG programs to be included.*          
+*                       |       If not specified, all RPG programs   *          
+*                       |       will be included.                    *          
+*                       |_ Virtual address of disk on which the      *          
+*                          TEXT files for the RPG programs are       *          
+*                          located.                                  *          
+*                                                                    *          
+*  NOTE: Enter QC instead of a virtual address if you want to        *          
+*        grant RUN authority for programs that reside on the         *          
+*        QC 291 disk.                                                *          
+*                                                                    *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+TRACE 'O'                                                                       
+arg disk pgms                                                                   
+parse source . . $ .                                                            
+    if userid() /= 'CSI' then do                                                
+      say 'RUN AUTHORITY ON ACCESS MODULES CAN BE GRANTED ONLY BY CSI'          
+      say  $' PROGRAM IS TERMINATED'                                            
+      signal end                                                                
+    end                                                                         
+    if disk='QC' then do                                                        
+   'QUERY QC'                                                                   
+      if rc = 0 then do                                                         
+        say 'QC MACHINE IS ACTIVE - CANNOT RUN '$' NOW'                         
+        signal end                                                              
+      end                                                                       
+      address COMMAND                                                           
+     'CP LINK QC 291 5FF WR WRITE'                                              
+      if rc/=0 then do                                                          
+        say 'ERROR IN LINKING TO QC DISK - '$' TERMINATED'                      
+        signal end                                                              
+      end                                                                       
+      disk='5FF'                                                                
+    end                                                                         
+address COMMAND                                                                 
+   'SET DOS OFF'                                                                
+   'ACCESS 'disk' A'                                                            
+   'ACCESS 191 B/A'                                                             
+    if rc /= 0 then do                                                          
+      say 'ERROR ON ACCESS FOR DISK 'disk' - '$' TERMINATED'                    
+      signal end                                                                
+    end                                                                         
+   'ERASE CMS EXEC A'                                                           
+    if pgms='' then pgms='*'                                                    
+    do until pgms=''                                                            
+      parse upper var pgms pgm pgms                                             
+     'LISTFILE 'pgm' TEXT A (STACK'                                             
+    end                                                                         
+    queue 'ENDOFTHEQUEUE'                                                       
+    type='TEXT'                                                                 
+    qty = 0                                                                     
+    line="/*     */  'ERASE "$" LIST A'"                                        
+   'EXECIO 1 DISKW CMS EXEC A (VAR LINE'                                        
+    do while type='TEXT'                                                        
+      parse pull pgm type .                                                     
+      if type='TEXT' then do                                                    
+        qty = qty+1                                                             
+ L1="'EXEC RXSQLEX REVOKE RUN ON CSI."pgm" FROM PUBLIC'"                        
+ L2="'EXEC RXSQLEX GRANT RUN ON CSI."pgm" TO PUBLIC'"                           
+ L3=" if rc/=0 then msg='************ERROR "                                    
+ L3=L3||"'rc' IN GRANTING AUTHORITY FOR "pgm"'"                                 
+ L4=" else msg='SQL RUN AUTHORITY GRANTED FOR "pgm"'"                           
+ L5="'EXECIO 1 DISKW "$" LIST A (VAR MSG'"                                      
+        call write 5                                                            
+       end                                                                      
+    end                                                                         
+   'FINIS CMS EXEC A'                                                           
+    if qty = 0 then say 'NO SQL PROGRAM DOSLIBS FOUND ON DISK 'disk             
+    else do                                                                     
+      say 'RUN AUTHORITY FOR 'qty' PROGRAMS WILL BE GRANTED.'                   
+      say 'ENTER "YES" TO PROCEED.'                                             
+      pull answer                                                               
+      if answer='YES' then 'EXEC CMS'                                           
+    end                                                                         
+end:                                                                            
+   'ACCESS 191 A'                                                               
+exit                                                                            
+write:                                                                          
+    arg n                                                                       
+   'EXECIO 'n' DISKW CMS EXEC A (STEM L'                                        
+return                                                                          

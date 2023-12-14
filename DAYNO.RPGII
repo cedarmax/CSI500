@@ -1,0 +1,92 @@
+     H*1----COPYRIGHT 09/14/89 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS----DAYNO 
+     H*                                                                         
+     H*2=====================================================DAYNO=SLS009=091489
+     H*3   DESCRIPTION OF PROGRAM: CALCULATE DAY NUMBER FOR DATE               *
+     H*     SPECIFIED.  DAY NUMBER IS 0-6 0=SUNDAY,6=SATURDAY.                 *
+     H*                                                                        *
+     H*    PARMS NEEDED: CURRENT DAY NUMBER (0-6 WHERE 0=MONDAY,6=SUNDAY)      *
+     H*     CURRENT JULIAN DATE (YYDDD) AND SPECIFIED DATE (DDMMYY)            *
+     H*                                                                        *
+     H*========================================================================*
+     H*                                                                         
+     H*========================================================================*
+     H*   **** U   I N D I C A T O R   U S A G E ****                          *
+     H*                                                                        *
+     H*   U1 = None                                                            *
+     H*========================================================================*
+     H*                                                                         
+     H                                                S                   DAYNO 
+     E                    WD     12  12  3 0             DAY OF YEAR            
+     C********************************************************************      
+     C*                           MAIN DRIVER                            *      
+     C********************************************************************      
+     C*                                                                         
+     C           *ENTRY    PLIST                                                
+     C                     PARM           CURDA   10                            
+     C                     PARM           CURJUL  50                            
+     C                     PARM           DATE    60                            
+     C                     PARM           DAYNO   10                            
+     C***        AGAIN     TAG                                                  
+     C                     Z-ADDCURDA     CURDAY  10                            
+     C           CURDAY    ADD  1         CURDAY                                
+     C           CURDAY    COMP 7                        17                     
+     C   17                Z-ADD0         CURDAY                                
+     C                     MOVELDATE      MODAY   40                            
+     C                     MOVELMODAY     MONTH   20                            
+     C                     MOVE MODAY     DAY     20                            
+     C                     MOVE DATE      YEAR    20                            
+     C                     MOVELCURJUL    JULYR   20                            
+     C                     MOVE CURJUL    JULDAY  30                            
+     C           YEAR      DIV  4         Y2      20                            
+     C                     MVR            REM     10                            
+     C           REM       COMP 0                        29                     
+     C           JULYR     DIV  4         Y2                                    
+     C                     MVR            REM                                   
+     C           REM       COMP 0                        30                     
+     C           YEAR      COMP JULYR                4142                       
+     C           MONTH     SUB  1         X       20 31                         
+     C   31      X         COMP 1                    32                         
+     C   31      WD,X      ADD  DAY       DAOFYR  30                            
+     C   31 29 32DAOFYR    ADD  1         DAOFYR                                
+     C  N31                Z-ADDDAY       DAOFYR                                
+     C   41                EXSR DAYNO1                                          
+     C   42                EXSR DAYNO2                                          
+     C  N41N42             EXSR DAYNO3                                          
+     C           REMDAY    DIV  7         REMDAY                                
+     C                     MVR            DAY                                   
+     C  N42      DAY       ADD  CURDAY    DAY                                   
+     C   42      CURDAY    SUB  DAY       DAY                                   
+     C           DAY       COMP 0                      31                       
+     C   31      7         ADD  DAY       DAYNO                                 
+     C           DAY       COMP 6                    32                         
+     C   32      DAY       SUB  7         DAYNO                                 
+     C  N31N32             Z-ADDDAY       DAYNO                                 
+     C                     RETRN                                                
+     CSR         DAYNO1    BEGSR                                                
+     C********************************************************************      
+     C* CALCULATE THE WEEK DAY NUMBER WHEN YEAR > CURRENT YEAR.          *      
+     C********************************************************************      
+     CSR 30      366       SUB  JULDAY    REMDAY  30                            
+     CSRN30      365       SUB  JULDAY    REMDAY                                
+     CSR         REMDAY    ADD  DAOFYR    REMDAY                                
+     CSR         ENDS1     ENDSR                                                
+     C*******************************************************************       
+     CSR         DAYNO2    BEGSR                                                
+     C********************************************************************      
+     C* CALCULATE THE WEEK DAY NUMBER WHEN YEAR < CURRENT YEAR.          *      
+     C********************************************************************      
+     CSR 29      366       SUB  DAOFYR    REMDAY  30                            
+     CSRN29      365       SUB  DAOFYR    REMDAY                                
+     CSR         REMDAY    ADD  JULDAY    REMDAY                                
+     CSR         ENDS2     ENDSR                                                
+     C*******************************************************************       
+     CSR         DAYNO3    BEGSR                                                
+     C********************************************************************      
+     C* CALCULATE THE WEEK DAY NUMBER WHEN YEAR = CURRENT YEAR.          *      
+     C********************************************************************      
+     CSR         DAOFYR    SUB  JULDAY    REMDAY       42                       
+     CSR 42                Z-SUBREMDAY    REMDAY                                
+     CSR         ENDS3     ENDSR                                                
+**                                                                              
+031059090120151181212243273304334365                                            
+/*                                                                              

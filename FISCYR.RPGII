@@ -1,0 +1,155 @@
+     H                                                S                   FISCYR
+     H*   This subprogram returns the fiscal year (2 digits) for any valid      
+     H*   calendar date that is passed to it.  Called as follows:               
+     H*                                                                         
+     H*                       CALL 'FISCYR'                                     
+     H*                       PARM            DATE   6                          
+     H*                       PARM            FYR    2                          
+     H*                                                                         
+     H*   If DATE contains a valid date, the fiscal year is returned in         
+     H*   FYR.  Otherwise, FYR will contain "*n", where "n" indicates an        
+     H*   error condition as follows:                                           
+     H*                                                                         
+     H*   *0 - POST FYR A file is empty, not present, or record is blank.       
+     H*   *1 - Year digits not valid (not 00-99).                               
+     H*   *2 - Month digits not valid (not 01-12).                              
+     H*   *3 - Day digits not valid (not 01-31).                                
+     H*   *4 - Day not valid for specified month.                               
+     H*   *5 - Date is before earliest date found in SDI.                       
+     H*                                                                         
+     H*   The starting date of the earliest fiscal year must be in the SDI      
+     H*   record.  Starting dates for subsequent years are needed in SDI        
+     H*   only if the starting date is different than the preceding year.       
+     H*   DATE must be in the MMDDYY format.  If YY is greater than 50, the     
+     H*   20th century is assumed (1951-1999); if YY is 50 or less, the         
+     H*   21st century is assumed (2000-2050).                                  
+     H*                                                                         
+     H*   If DATE is blank, the starting date of the fiscal year specified in   
+     H*   FYR will be returned in DATE.  If the fiscal year cannot be           
+     H*   determined from the SDI information, DATE remains blank.              
+     H*                                                                         
+     H***********************************************************************   
+     H*1* 08/14/90 JTM001                                                       
+     H*   Fiscal year was the calendar year in which the fiscal year begins.    
+     H*   It should be the calendar year in which the fiscal year ENDS.         
+     H*                                                                         
+     H*2* 08/14/90 JTM001                                                       
+     H*   Add ability to return FYR when DATE is blank.                         
+     H***********************************************************************   
+     E                    YRS    30 100  2                                      
+     E                    MOS    12  12  2                                      
+     E                    DAY    31  31  2                                      
+     E                    FYB        31  8  D                                   
+     IFYRDS       DS                                                            
+     I                                        1 248 FYB                         
+     I                                        1 248 POSTFY                      
+     C           *ENTRY    PLIST                                                
+     C                     PARM           DATE    6                             
+     C                     PARM           FYR     2                             
+     C*  Read POST FYR to get table of fiscal year beginning dates from SDI:    
+     C                     RLABL          POSTFY                                
+     C  N10                EXIT R$FYR                                           
+     C                     SETON                     10                         
+     C           DATE      COMP '      '                 25               *2*   
+     C  N25                GOTO GETYR                                     *2*   
+     C           FYR       COMP '50'                 25                   *2*   
+     C   25                MOVE '19'      CENT    2                       *2*   
+     C  N25                MOVE '20'      CENT                            *2*   
+     C******************** MOVE DATE      YR4     4                       *2*   
+     C                     MOVE FYR       YR4     4                       *2*   
+     C                     MOVELCENT      YR4                             *2*   
+     C                     MOVELYR4       FYDT    8                       *2*   
+     C                     MOVE '0101'    FYDT                            *2*   
+     C                     Z-ADD1         V                               *2*   
+     C           FYDT      LOKUPFYB,V                  2525               *2*   
+     C   25      FYB,V     COMP '        '           25                   *2*   
+     C  N25                GOTO BADATE                                    *2*   
+     C                     MOVE FYB,V     MODA    4                       *2*   
+     C                     MOVE FYR       YEAR    20                      *2*   
+     C           MODA      COMP '0101'                   25               *2*   
+     C  N25      YEAR      SUB  1         YEAR         26                 *2*   
+     C  N25 26             Z-ADD99        YEAR                            *2*   
+     C                     MOVELMODA      DATE                            *2*   
+     C                     MOVE YEAR      DATE                            *2*   
+     C                     GOTO BADATE                                    *2*   
+     C*********************************************************************2*   
+     C           GETYR     TAG                                            *2*   
+     C           FYB,1     COMP '        '           25                         
+     C  N25                MOVE '*0'      FYR                                   
+     C  N25                GOTO BADATE                                          
+     C                     MOVE '  '      FYR                                   
+     C                     MOVELDATE      MODA                                  
+     C*  Check year for valid digits; make century=19 if year is <50:           
+     C                     MOVE DATE      TD      2                             
+     C           TD        LOKUPYRS                      25                     
+     C  N25                MOVE '*1'      FYR                                   
+     C  N25                GOTO BADATE                                          
+     C           TD        COMP '50'                 25                         
+     C   25                MOVE '19'      CENT    2                             
+     C  N25                MOVE '20'      CENT                                  
+     C                     MOVE DATE      YEAR    20                            
+     C*  Check date for validity; must be valid calendar date:                  
+     C                     MOVELMODA      TD                                    
+     C                     Z-ADD1         V       30                            
+     C           TD        LOKUPMOS,V                    25                     
+     C  N25                MOVE '*2'      FYR                                   
+     C  N25                GOTO BADATE                                          
+     C                     MOVE MODA      TD                                    
+     C                     Z-ADD1         W       30                            
+     C           TD        LOKUPDAY,W                    25                     
+     C  N25                MOVE '*3'      FYR                                   
+     C  N25                GOTO BADATE                                          
+     C*  If month index is less than 8, any day is OK:                          
+     C           V         COMP 8                      25                       
+     C   25                GOTO GETFYR                                          
+     C*  If month index is between 7 and 12 and day is less than 31, OK:        
+     C           V         COMP 12                     25                       
+     C   25      W         COMP 31                     25                       
+     C   25                GOTO GETFYR                                          
+     C*  If month index is 12 (Feb) and day is less than 29, OK:                
+     C           W         COMP 29                   2625                       
+     C   25                GOTO GETFYR                                          
+     C   26                MOVE '*4'      FYR                                   
+     C   26                GOTO BADATE                                          
+     C*  If month index is 12 (Feb) and day is 29, check for leap year:         
+     C                     MOVE DATE      YEAR                                  
+     C                     Z-ADDYEAR      YEAR           25                     
+     C*  If year is 00 don't divide; this is a leap year; day 29 OK:            
+     C   25                GOTO GETFYR                                          
+     C           YEAR      DIV  4         V                                     
+     C                     MVR            W              25                     
+     C*  If year is multiple of four it is a leap year; day 29 OK:              
+     C*  Get fiscal year for transaction date:                                  
+     C           GETFYR    TAG                                                  
+     C                     MOVE DATE      YR4                                   
+     C                     MOVELCENT      YR4                                   
+     C                     MOVELYR4       FYDT                                  
+     C                     MOVE MODA      FYDT                                  
+     C                     Z-ADD1         V                                     
+     C           FYDT      LOKUPFYB,V                  2525                     
+     C   25      FYB,V     COMP '        '           25                         
+     C  N25                MOVE '*5'      FYR                                   
+     C  N25                GOTO BADATE                                          
+     C                     MOVE FYB,V     FYMD    4                             
+     C           FYMD      COMP '0101'                   25               *1*   
+     C*  If fiscal year begins on January 1, the fiscal year is always    *1*   
+     C*  equal to the calendar year.  Therefore, don't compare dates:     *1*   
+     C  N25      MODA      COMP FYMD                   25                 *1*   
+     C** 25      YEAR      SUB  1         FYEAR   20   21                 *1*   
+     C   25                Z-ADDYEAR      FYEAR   20                      *1*   
+     C** 25 21             Z-ADD99        FYEAR                           *1*   
+     C**N25                Z-ADDYEAR      FYEAR                           *1*   
+     C  N25      YEAR      ADD  1         FYEAR                           *1*   
+     C                     MOVE FYEAR     FYR     2                             
+     C           BADATE    TAG                                                  
+     C                     RETRN                                                
+**                                                                              
+909192939495969798990001020304050607080910111213141516171819                    
+202122232425262728293031323334353637383940414243444546474849                    
+505152535455565758596061626364656667686970717273747576777879                    
+80818283848586878889                                                            
+**                                                                              
+010305070810120406091102                                                        
+**                                                                              
+01020304050607080910111213141516171819202122232425262728293031                  
+/*                                                                              

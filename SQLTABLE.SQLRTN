@@ -1,0 +1,12 @@
+* LIST SQL TABLES CONTAINED IN RPG PROGRAMS ****************************                                                
+SELECT-                                                                                                                 
+GRANTEE,-                                                                                                               
+STNAME-                                                                                                                 
+FROM SYSTEM.SYSTABAUTH-                                                                                                 
+WHERE STNAME='&1' AND GRANTEE<> 'PUBLIC' AND GRANTEE<>'CSI'                                                             
+FORMAT COL 1 NAME 'PROGRAM'                                                                                             
+FORMAT COL 2 NAME 'SQL TABLE'                                                                                           
+FORMAT TTITLE-                                                                                                          
+'SQLTABLE     LIST SQL TABLES CONTAINED IN RPG PROGRAMS                        '                                        
+PRINT                                                                                                                   
+END                                                                                                                     

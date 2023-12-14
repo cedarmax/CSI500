@@ -1,0 +1,117 @@
+/* SENDCSI - Send files from CSI to a customer              02/25/89 *          
+*                                                                    *          
+*  Use SENDCSI to send files from a CSI minidisk at CSI to the       *          
+*  same CSI minidisk at a customer's site, as follows:               *          
+*                                                                    *          
+*      SENDCSI disk code user                                        *          
+*              |    |    |_RSCS network ID of the customer.          *          
+*              |    |_Command code or program name.                  *          
+*              |_Address of CSI minidisk on which files are located. *          
+*                                                                    *          
+*  Files will be sent from the specified CSI minidisk to the CSI     *          
+*  reader at the user location.  They must then be received on the   *          
+*  proper CSI minidisk.                                              *          
+*                                                                    *          
+*  If the command code identifies a batch program, files for all     *          
+*  programs with a similar name will be sent.  For example, if       *          
+*  PRJ is the command code, programs PRJ01, PRJ02, and PRJ03 will    *          
+*  be included.  Therefore, if you want to send only one program,    *          
+*  use the program name instead of the command code. For example,    *          
+*  you could use PRJ02 instead of PRJ.                               *          
+*                                                                    *          
+*  SQLSTMT and SQLDAn files are not sent because they must be        *          
+*  created on the host system to which the program is sent.          *          
+*  However, a dummy SQLSTMT is sent to replace the existing SQLSTMT  *          
+*  file in order to force re-creation of these files on the host     *          
+*  system.                                                           *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 07/15/90 Added MESSAGE to filetypes that are sent.               *          
+*            Deleted DOSLIB from filetypes that are sent.            *          
+*********************************************************************/          
+arg disk name dest optn                                                         
+parse source . . $ .                                                            
+    if optn='SENDUSER' then do                                                  
+      user='USER'                                                               
+      source=dest                                                               
+    end                                                                         
+    else do                                                                     
+      user='CSI'                                                                
+      source='CSI'                                                              
+    end                                                                         
+address COMMAND                                                                 
+   'EXEC SETMSG  ON'                                                            
+   'CP LINK 'source disk disk' RR RCSI'                                         
+    if rc/=0 then do                                                            
+      say 'LINK TO 'source disk' FAILED - '$' TERMINATED'                       
+      signal exit                                                               
+    end                                                                         
+   'ERASE 'fn' $SQLSTMT A'                                                      
+   'ACCESS 'disk' E/E'                                                          
+    if rc/=0 then do                                                            
+      say 'ACCESS TO 'source disk' FAILED - '$' TERMINATED'                     
+      signal exit                                                               
+    end                                                                         
+    fm='E'                                                                      
+    say source' DISK 'disk name' FILES WILL BE SENT TO 'user' AT 'dest          
+    say 'ENTER "YES" TO PROCEED.'                                               
+    pull answer                                                                 
+      if answer/='YES' then signal exit                                         
+    qty=0                                                                       
+    fn=name                                                                     
+    type='RPGII'     ; call send                                                
+    type='TEXT'      ; call send                                                
+    type='DOSLIB'    ; call send                                                
+    type='SQLSTMT'   ; call send                                                
+    type='MESSAGE'   ; call send                            /*1*/               
+    y=0                                                                         
+    do until y>9                                                                
+      type='FT'y    ; call send                                                 
+      type='LIMIT'y ; call send                                                 
+/*    type='SQLDA'y ; call send     */                                          
+      y=y+1                                                                     
+    end                                                                         
+    x=0                                                                         
+    do until x>9                                                                
+      fn=name||0||x                                                             
+      type='RPGII'   ; call send                                                
+      type='TEXT'    ; call send                                                
+      type='SQLSTMT' ; call send                                                
+      type='PANEL'   ; call send                                                
+      type='MESSAGE' ; call send                            /*1*/               
+      y=0                                                                       
+      do until y>9                                                              
+        type='FT'y     ; call send                                              
+        type='LIMIT'y  ; call send                                              
+/*      type='SQLDA'y  ; call send  */                                          
+        y=y+1                                                                   
+      end                                                                       
+      x=x+1                                                                     
+    end                                                                         
+    fn=name                                                                     
+    type='HELP'  ; call send                                                    
+    type='EXEC'  ; call send                                                    
+    fn=name'$'   ; call send                                                    
+    say qty' FILES SENT'                                                        
+exit:                                                                           
+   'REL E(DET'                                                                  
+exit                                                                            
+send:                                                                           
+   'STATE 'fn type fm                                                           
+    if rc=0 then do                                                             
+      if type='SQLSTMT' then do                                                 
+       'RENAME 'fn' SQLSTMT A = $SQLSTMT A'                                     
+       'EXECIO 1 DISKW 'fn' SQLSTMT A (STRING 0000'                             
+       'EXEC SENDFILE 'fn' SQLSTMT A TO 'user' AT 'dest                         
+       'ERASE 'fn' SQLSTMT A'                                                   
+       'RENAME 'fn' $SQLSTMT A = SQLSTMT A'                                     
+        qty=qty+1                                                               
+      end                                                                       
+      else do                                                                   
+       'EXEC SENDFILE 'fn type fm' TO 'user' AT 'dest                           
+        if rc/=0 then say rc' ERROR IN SENDING 'name type                       
+        else qty=qty+1                                                          
+      end                                                                       
+    end                                                                         
+return                                                                          

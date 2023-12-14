@@ -1,0 +1,28 @@
+/* PREALLOC - To cause SQL to do pre-allocate.             01-20-90  *          
+*                                                                    *          
+*  Use PREALLOC make space available in system dbspaces for access   *          
+*  modules.  This is done by temporarily creating access modules to  *          
+*  fill the dbpsaces and force an SQL -945 error.  Then, all of the  *          
+*  access modules that were created are dropped.                     *          
+*                                                                    *          
+*  The SQL preallocation process is described in SH09-8018-01, p133. *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+   i=0                                                                          
+start:                                                                          
+   sqlcode=0                                                                    
+   do until sqlcode/=0                                                          
+     i=i+1                                                                      
+    'RXSQL CREATE PROGRAM CSI'i 'USING OPTION MODIFY'                           
+     if sqlcode=0 then  'RXSQL COMMIT WORK'                                     
+   end                                                                          
+   say 'SQLCODE='sqlcode                                                        
+   if sqlcode=-946 then signal start                                            
+   do j=1 to i                                                                  
+    'RXSQL EXEC DROP PROGRAM CSI'j                                              
+   end                                                                          
+  'RXSQL COMMIT WORK'                                                           
+exit                                                                            

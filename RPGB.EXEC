@@ -1,0 +1,67 @@
+/* RPGB -Submit RPG Compile to VMBATCH                     08/31/89  *          
+*                                                                    *          
+*  Use this exec to compile and/or link an RPG program in a batch    *          
+*  job under VMBATCH.  This exec is called exactly the same way as   *          
+*  RPGC; the parameters are passed to RPGB$, which executes RPGC     *          
+*  on the batch machine with the same parameters.                    *          
+*                                                                    *          
+*->If you need to include some special commands, such as linking to  *          
+*->another disk for files to be used in the link, you can put the    *          
+*->commands in a file with the same name as your program to be       *          
+*->compiled and/or linked and with the file type COMMANDS.  The      *          
+*->commands should be written in REXX, in the same way that they     *          
+*->would be written in an exec.  However, the COMMANDS file is not   *          
+*->an exec and should not start with "/*    */".  Because it is not  *          
+*->an exec, the commands in the file can reference variables that    *          
+*->are used in the RPGB$ exec, if necessary.                         *          
+*                                                                    *          
+*  Output from RPGC (the LISTING, TEXT, MAP, and DOSLIB files) are   *          
+*  written to the user's 400 disk, which must have a multi-write     *          
+*  password of MULTI.  And, your LINK to the disk must be RR.        *          
+*                                                                    *          
+*  If the DOSLIB to be created by the batch compile has the same     *          
+*  name as a DOSLIB on your 191 disk (which is accessed by batch     *          
+*  jobs), the link in the batch job will fail because the DOSLIB     *          
+*  is on a read-only disk.  This is prevented by an ERASE statement  *          
+*  in this exec, which will delete the DOSLIB from your 191 disk.    *          
+*                                                                    *          
+*  In order to be able to access the files created by the batch job, *          
+*  your 400 disk must be re-accessed after the files are created.    *          
+*  To make sure this happens, this exec releases access of your B    *          
+*  disk before submitting the batch job.  Therefore, your 400 disk   *          
+*  should be accessed as B/A.                                        *          
+*                                                                    *          
+*  The RPGB$ batch exec will send a message to you when the compile  *          
+*  is complete.  This message will not be displayed if you do not    *          
+*  have messages set on.                                             *          
+*                                                                    *          
+*  Like all batch jobs in the user environment, the batch compile    *          
+*  will send status files (which include the console file) to your   *          
+*  reader.  These files will be included in the BJM listing.         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*08/20/89 Added provision for additional commands to be passed to    *          
+*         batch.  These are written in REXX in a file with the same  *          
+*         name as the program to be compiled and/or linked, and with *          
+*         file type COMMANDS.                                        *          
+*                                                                    *          
+*08/31/89 Added 'GLOBALV PURGE USER' to prevent CSIBATCH from using  *          
+*         the value of USER in "LINK 'user' 400 400 RR".             *          
+*                                                                    *          
+*1* 06/24/90 Change 400 disk to R/O access so batch machine can      *          
+*            get R/W; delete 'ERASE DOSLIB'.                         *          
+*                                                                    *          
+*********************************************************************/          
+arg line                                                                        
+    parse var line pgm .                                                        
+   'REL B (DET'                                            /*1*/                
+   'LINK * 400 400 RR'                                     /*1*/                
+   'ACC 400 B/A'                                           /*1*/                
+   'SET DOS OFF'                                                                
+   'WRITE1 1 'line                                                              
+   'STATE 'pgm' COMMANDS A'                                                     
+    if rc=0 then 'COPY 'pgm' COMMANDS A INPUT1 DATA A (APPEND'                  
+   'GLOBALV PURGE USER'                                                         
+   'SUBMIT RPGB (NOPANEL'                                                       
+exit                                                                            

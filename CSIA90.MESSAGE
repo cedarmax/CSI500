@@ -1,0 +1,4 @@
+CSIA901   .ALARM=YES                                                            
+'WARNING: BALANCE IS ZERO OR NEGATIVE'                                          
+CSIA902   .ALARM=YES                                                            
+'&CANCEL IS AN INVALID RESPONSE'                                                

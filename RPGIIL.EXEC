@@ -1,0 +1,274 @@
+         &CONTROL OFF NOMSG                                                     
+         &IF &DOS NE ON &GOTO -ERR80                                            
+         GLOBAL DOSLIB RPGLIB                                                   
+*                                                                               
+*        EXEC TO PREPARE  ENVIRONMENT  FOR  THE  DOS/VS  RPGII                  
+*        COMPILER.  THIS EXEC  WILL PERFORM  SOME HOUSEKEEPING                  
+*        NEEDED TO RUN THE COMPILER. FUNCTIONS SUCH AS DEFAULT                  
+*        DLBLS AND  ASSIGNMENT OF UN-ASSIGNED  UNITS NEEDED BY                  
+*        THE COMPILER ARE PERFORMED. ERROR MESSAGES ARE ISSUED                  
+*        WHEN  NECCESSARY, AND CLEAN UP IS  DONE AT THE END OF                  
+*        THE COMPILE.                                                           
+*                                                                               
+*        ANY VALID RPGII COMPILER OPTION, AS DESCRIBED BY THE                   
+*        CMS  OPTION  COMMAND,  MAY  BE  ISSUED   AFTER A '('                   
+*        FOLLOWING  THE  FILENAME  SPECIFICATION  OF THE EXEC                   
+*        COMMAND.  THE FIRST PARAMETER IS THE FILENAME OF THE                   
+*        FILE TO BE COMPILED IF IT  RESIDES  ON DISK,  OR THE                   
+*        FILENAME BY  WHICH THE  TEXT,  AND/OR LISTING  FILES                   
+*        WILL BE IDENTIFIED.                                                    
+         &LINK = NO                                                             
+         &IF &INDEX LT 1 &GOTO -ERR1                                            
+         &FN   = &1                                                             
+         &FNSAVE = &1                                                           
+         &1 =                                                                   
+         &IF &INDEX EQ 1 &GOTO -NOOPTS                                          
+*                                                                               
+         &CONTROL ERROR                                                         
+         &IF &$   EQ LINK &LINK = YES                                           
+         &IF  &2  NE  (    &GOTO -ERR70                                         
+         &IF .&3  EQ .LINK &3   =                                               
+         &IF .&4  EQ .LINK &4   =                                               
+         &IF .&5  EQ .LINK &5   =                                               
+         &IF .&6  EQ .LINK &6   =                                               
+         &IF .&7  EQ .LINK &7   =                                               
+         &IF .&8  EQ .LINK &8   =                                               
+         &IF .&9  EQ .LINK &9   =                                               
+         &IF .&10 EQ .LINK &10  =                                               
+         &IF .&11 EQ .LINK &11  =                                               
+         &IF .&12 EQ .LINK &12  =                                               
+         &IF .&13 EQ .LINK &13  =                                               
+         &IF .&14 EQ .LINK &14  =                                               
+         &IF .&15 EQ .LINK &15  =                                               
+         OPTION  &3 &4 &5 &6 &7 &8 &9 &10 &11 &12 &13 &14 &15                   
+         &IF &RETCODE EQ 24 &EXIT                                               
+         &CONTROL OFF NOMSG                                                     
+-NOOPTS                                                                         
+         &FM   = &DISK*                                                         
+         &IF   &FM   EQ   NONE   &GOTO   -ERR6                                  
+         &CHNG = NOCHANGE                                                       
+*        THE  SYSIN UNIT IS CHECKED  FOR VALID ASSIGNMENT, AND                  
+*        IF  ASSIGNED TO DISK, THE EXISTENCE OF THE INPUT FILE                  
+*        IS VERIFIED.  A  DEFAULT  DLBL  IS  ISSUED  WITH  THE                  
+*        NOCHANGE OPTION SO  AS TO  NOT OVERRIDE  ANY PREVIOUS                  
+*        USER ISSUED DLBL.                                                      
+         LISTIO SYSIPT    ( EXEC STAT                                           
+         &IF    &RETCODE  NE  0  &EXIT  &RETCODE                                
+         EXEC   $LISTIO   &STACK   LIFO                                         
+         &READ  ARGS                                                            
+         &DEV   =    &SUBSTR   &2     1  3                                      
+         &IF    &2   EQ READER &GOTO -CONT                                      
+         &IF    &DEV EQ TAP    &GOTO -CONT                                      
+         &FML   =    &LENGTH   &2                                               
+         &IF    &DEV  EQ  UA   &GOTO -ASSGN                                     
+         &IF    &FML  NE  1    &GOTO -ERR99                                     
+         &FM    =  &2                                                           
+-ASSGN                                                                          
+*        &3     =      A                                                        
+*        &2     =      A                                                        
+*        &IF    &DISK&2   NE    CMS  &GOTO  -SKIP6                              
+*        STATE  &FN RPGII &FM                                                   
+*        &IF    &RETCODE  EQ 28 &GOTO -ERR2                                     
+*        &IF    &RETCODE  NE  0 &EXIT &RETCODE                                  
+*        ASSGN  SYSIPT &FM                                                      
+*        DLBL   IJSYSIN   &FM   CMS   &FN   RPGII  ( SYSIPT &CHNG               
+*        &IF    &RETCODE  NE  0 &EXIT &RETCODE                                  
+*        &IF    &3    EQ  R/W   &GOTO -CONT                                     
+-SKIP6                                                                          
+         &FM    =  &DISK*                                                       
+*        ALL COMPILER OUTPUT UNITS ARE ACCUMULATED IN AN EXEC                   
+*        FILE SO THEY CAN BE STACKED FOR LATER USE BY THIS EXEC.                
+-CONT    &ERROR &EXIT  &RETCODE                                                 
+         LISTIO SYS003 ( EXEC STAT                                              
+         LISTIO SYS002 ( APPEND STAT                                            
+         LISTIO SYS001 ( APPEND STAT                                            
+*        LISTIO SYSLOG ( APPEND STAT                                            
+         LISTIO SYSLST ( APPEND STAT                                            
+         LISTIO SYSPCH ( APPEND STAT                                            
+         &ERROR &CONTINUE                                                       
+         EXEC   $LISTIO   &STACK   LIFO                                         
+*        CHECK SYSPCH FOR VALID  ASSIGNMENT  AND  IF  ASSIGNED                  
+*        TO  DISK, ISSUE DEFAULT DLBL.  IF UNIT IS UNASSIGNED,                  
+*        ASSIGN IT  TO THE  &FM DISK  AND ISSUE  DEFAULT DLBL.                  
+*        ERASE ANY OLD TEXT FILE.                                               
+         &READ  ARGS                                                            
+         &DEV   =    &SUBSTR  &2     1  3                                       
+         &IF    &2   EQ PUNCH &GOTO -SLST                                       
+         &IF    &DEV EQ TAP   &GOTO -SLST                                       
+         &IF    &2   EQ IGN   &GOTO -SLST                                       
+         &FML   =    &LENGTH  &2                                                
+         &IF    &FML EQ 1     &GOTO -DLBL1                                      
+         &IF    &2   NE UA    &GOTO -ERR99                                      
+         &2     =  &FM                                                          
+         &3     =  R/W                                                          
+         &CHNG  =  CHANGE                                                       
+         &TPCH  =  UA                                                           
+         ASSGN  SYSPCH  &FM                                                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+-DLBL1   DLBL   IJSYSPH &2  CMS  &FN TEXT  ( SYSPCH &CHNG                       
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+         &IF &3    NE R/W  &GOTO -ERR37E                                        
+*****    ERASE    &FN TEXT &2                                                   
+*        CHECK SYSLST FOR VALID ASSIGNMENT AND IF ASSIGNED                      
+*        TO DISK, ISSUE DEFAULT DLBL. IF UNIT IS UNASSIGNED,                    
+*        ASSIGN IT TO THE &FM DISK AND ISSUE DEFAULT DLBL.                      
+*        ERASE ANY OLD LISTING FILE.                                            
+-SLST    &CHNG  =  NOCHANGE                                                     
+         &READ  ARGS                                                            
+         &DEV   =    &SUBSTR    &2     1  3                                     
+         &IF    &2   EQ PRINTER &GOTO -S001                                     
+         &IF    &DEV EQ TAP     &GOTO -S001                                     
+         &IF    &2   EQ IGN     &GOTO -S001                                     
+         &FML   =    &LENGTH    &2                                              
+         &IF    &FML EQ 1       &GOTO -DLBL2                                    
+         &IF    &2   NE UA      &GOTO -ERR99                                    
+         &2     =  &FM                                                          
+         &3     =  R/W                                                          
+         &CHNG  =  CHANGE                                                       
+         &TLST  =  UA                                                           
+         ASSGN  SYSLST  &FM                                                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+-DLBL2   DLBL   IJSYSLS &2  CMS  &FN LISTING   ( SYSLST &CHNG                   
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+         &IF &3    NE R/W  &GOTO -ERR37E                                        
+*******  ERASE    &FN LISTING &2                                                
+*        CHECK SYS001 FOR VALID  ASSIGNMENT  AND  IF  ASSIGNED                  
+*        TO  DISK, ISSUE DEFAULT DLBL.  IF UNIT IS UNASSIGNED,                  
+*        ASSIGN IT  TO THE  &FM DISK  AND ISSUE  DEFAULT DLBL.                  
+*        ERASE ANY OLD SYS001 WORKFILE.                                         
+-S001    &CHNG  =  NOCHANGE                                                     
+         &FM    =  &DISK?                                                       
+         &READ  ARGS                                                            
+         &FML   =    &LENGTH &2                                                 
+         &IF    &FML EQ 1    &GOTO -DLBL3                                       
+         &IF    &2   NE UA   &GOTO -ERR99                                       
+         &2     =  &FM                                                          
+         &3     =  R/W                                                          
+         &CHNG  =  CHANGE                                                       
+         &T001  =  UA                                                           
+         ASSGN  SYS001  &FM                                                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+-DLBL3   DLBL   IJSYS01 &2  CMS  &FN SYS001  ( SYS001 &CHNG                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+         &IF &3    NE R/W  &GOTO -ERR37E                                        
+         ERASE    &FN SYS001 &2                                                 
+         &E001    =   &2                                                        
+*        CHECK SYS002 FOR VALID ASSIGNMENT AND IF ASSIGNED                      
+*        TO DISK, ISSUE DEFAULT DLBL. IF UNIT IS UNASSIGNED,                    
+*        ASSIGN IT TO THE &FM DISK AND ISSUE DEFAULT DLBL.                      
+*        ERASE ANY OLD SYS002 WORKFILE.                                         
+-S002    &CHNG  =  NOCHANGE                                                     
+         &READ  ARGS                                                            
+         &FML   =   &LENGTH  &2                                                 
+         &IF    &FML EQ 1    &GOTO -DLBL4                                       
+         &IF    &2   NE UA   &GOTO -ERR99                                       
+         &2     =  &FM                                                          
+         &3     =  R/W                                                          
+         &CHNG  =  CHANGE                                                       
+         &T002  =  UA                                                           
+         ASSGN  SYS002  &FM                                                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+-DLBL4   DLBL   IJSYS02 &2  CMS  &FN SYS002  ( SYS002 &CHNG                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+         &IF &3    NE R/W  &GOTO -ERR37E                                        
+         ERASE    &FN SYS002 &2                                                 
+         &E002    =   &2                                                        
+*        CHECK SYS003 FOR VALID ASSIGNMENT AND IF ASSIGNED                      
+*        TO DISK, ISSUE DEFAULT DLBL. IF UNIT IS UNASSIGNED,                    
+*        ASSIGN IT TO THE &FM DISK AND ISSUE DEFAULT DLBL.                      
+*        ERASE ANY OLD SYS003 WORKFILE.                                         
+-S003    &CHNG  =  NOCHANGE                                                     
+         &READ  ARGS                                                            
+         &FML   =    &LENGTH &2                                                 
+         &IF    &FML EQ 1    &GOTO -DLBL5                                       
+         &IF    &2   NE UA   &GOTO -ERR99                                       
+         &2     =  &FM                                                          
+         &3     =  R/W                                                          
+         &CHNG  =  CHANGE                                                       
+         &T003  =  UA                                                           
+         ASSGN  SYS003  &FM                                                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+-DLBL5   DLBL   IJSYS03 &2  CMS  &FN SYS003  ( SYS003 &CHNG                     
+         &IF &RETCODE NE 0 &GOTO -CLRBUF                                        
+         &IF &3    NE R/W  &GOTO -ERR37E                                        
+         ERASE    &FN SYS003 &2                                                 
+         &E003    =   &2                                                        
+*        FETCH THE  DOS/VS RPGII  INTERFACE PROGRAM  AND START                  
+*        EXECUTION.  UPON  RETURN, SAVE  THE RETURN  CODE FROM                  
+*        CMS.                                                                   
+-FETCH   ERASE   $LISTIO    EXEC                                                
+***      FETCH   RPGII   (START  COMP                                           
+         &RC  =  &RETCODE                                                       
+*        CLEAR ALL DLBL'S ISSUED BY THIS EXEC AND RESET                         
+*        ALL CHANGED UNITS BACK TO THEIR ORIGINAL STATUS.                       
+*        ALSO ERASE SYS001 - SYS003 WORKFILES.                                  
+         &IF .&E001 NE . ERASE &FN SYS001 &E001                                 
+         &IF .&E002 NE . ERASE &FN SYS002 &E001                                 
+         &IF .&E003 NE . ERASE &FN SYS003 &E001                                 
+         DLBL * CLEAR                                                           
+-END     &ERROR &EXIT &RETCODE                                                  
+         &IF   .&TPCH EQ .UA  ASSGN SYSPCH UA                                   
+         &IF   .&TLST EQ .UA  ASSGN SYSLST UA                                   
+         &IF   .&TLOG EQ .UA  ASSGN SYSLOG UA                                   
+         &IF   .&T001 EQ .UA  ASSGN SYS001 UA                                   
+         &IF   .&T002 EQ .UA  ASSGN SYS002 UA                                   
+         &IF   .&T003 EQ .UA  ASSGN SYS003 UA                                   
+         &ERROR &CONTINUE                                                       
+-EXIT    ERASE  $LISTIO EXEC                                                    
+         &IF  &RC = 0 &GOTO -LKED                                               
+-EXIT1                                                                          
+         &EXIT  &RC                                                             
+-LKED                                                                           
+*                                                                               
+  &USRLIB = &FN                                                                 
+         ERASE &FN DOSLIB                                                       
+         DOSLKED &FNSAVE &USRLIB                                                
+         &RC = &RETCODE                                                         
+         &IF &RC NE 0 &EXIT &RC                                                 
+***** DONT COMPRESS DOSLIB BECAUSE IT WAS DELETED AND RECREATED *******         
+*        &STACK  HT                                                             
+*        DOSLIB COMP &USRLIB                                                    
+*        &RC    =    &RETCODE                                                   
+*        &IF &RC EQ 0 &GOTO -L1                                                 
+*                                                                               
+*TYPE AN ERROR OCCURRED WHILE COMPRESSING THE &USRLIB DOSLIB  -  RC = &RC       
+*        &EXIT &RC                                                              
+**********************************************************************          
+-L1                                                                             
+&BEGTYPE                                                                        
+LINK EDIT SUCCESSFUL                                                            
+&END                                                                            
+         &EXIT &RC                                                              
+*                                                                               
+*        ERROR MESSAGES                                                         
+*                                                                               
+-ERR1    &CONTINUE                                                              
+&BEGTYPE                                                                        
+NO FILENAME SPECIFIED.                                                          
+&END                                                                            
+         &EXIT 24                                                               
+-ERR2    &CONTINUE                                                              
+&TYPE FILE  &FN RPGII  NOT FOUND.                                               
+         &EXIT 28                                                               
+-ERR6    &CONTINUE                                                              
+&BEGTYPE                                                                        
+NO READ / WRITE DISK ACCESSED.                                                  
+&END                                                                            
+         &EXIT 36                                                               
+-ERR70   &CONTINUE                                                              
+         &TYPE INVALID ARGUMENT   &2                                            
+         &EXIT 24                                                               
+-ERR80   &CONTINUE                                                              
+&BEGTYPE                                                                        
+RPG099E CMS/DOS ENVIRONMENT NOT ACTIVE                                          
+&END                                                                            
+         &RC = 28                                                               
+         &GOTO -END                                                             
+-ERR99   &TYPE INVALID DEVICE  &2  FOR  &1 .                                    
+         &RC = 28                                                               
+         &GOTO -END                                                             
+-ERR37E  &TYPE DISK  &2  IS READ ONLY.                                          
+         &RC = 36                                                               
+         &GOTO -END                                                             
+-CLRBUF  &RC = &RETCODE                                                         
+         &GOTO -END                                                             

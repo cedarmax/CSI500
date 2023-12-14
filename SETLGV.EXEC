@@ -1,0 +1,53 @@
+/**SETLGV - Set global variables in LASTING GLOBALV for    01/08/90  *          
+*           access by all users.                                     *          
+*                                                                    *          
+*  Use SETLGV to create or update the LASTING GLOBALV file on the    *          
+*  CSI 500 disk to contain variables that will be available to all   *          
+*  users.  Access the CSI 500 disk as F in order to get write        *          
+*  access, then use SETLGV as follows:                               *          
+*                                                                    *          
+*                     SETLGV type                                    *          
+*                                                                    *          
+*  where "type" specifies the type of variables as follows:          *          
+*                                                                    *          
+*        CAMPUS   Sets variables for the names of all campus         *          
+*                 numbers that are found in SQL table CSI.UCN.       *          
+*                                                                    *          
+*  NOTE: Each time a campus name is added or changed with UCN,       *          
+*        SETLGV must be used before the updated names will be        *          
+*        available to user programs.                                 *          
+*                                                                    *          
+*  This exec can be used only by user CSI because it needs write     *          
+*  access to the CSI 500 disk.  Variables are stored in LASTING      *          
+*  GLOBALV on the CSI 500 disk so that user programs will have       *          
+*  access to commonly-used information without getting it from SQL   *          
+*  tables each time that it is needed.                               *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*1* 03/22/90 Added information to instructions above.                *          
+*********************************************************************/          
+arg type                                                                        
+/* if userid()/='CSI' then do                                                   
+     say 'SETLGV can be used only by User CSI.'                                 
+     exit                                                                       
+   end   */                                                                     
+  'GLOBALV INIT'                                                                
+   if type='CAMPUS' then call campus                                            
+/* Remove duplicates from LASTING GLOBALV:  */                                  
+  'GLOBALV INIT'                                                                
+  'COPY LASTING GLOBALV A = = F (REP'                                           
+   if rc=0 then 'ERASE LASTING GLOBALV A'                                       
+exit                                                                            
+campus:                                                                         
+   'RXSQL PREP READ SELECT CAMPUS_NUMBER,CAMPUS_NAME FROM CSI.UCN'              
+   'RXSQL OPEN READ'                                                            
+    do while sqlcode=0                                                          
+     'RXSQL FETCH READ INTO CMP NAME'                                           
+      if sqlcode=0 then do                                                      
+       'GLOBALV SELECT CSI SETLP CAMPUS'cmp name                                
+      end                                                                       
+    end                                                                         
+   'RXSQL PURGE READ'                                                           
+   'RXSQL ROLLBACK WORK'                                                        
+return                                                                          

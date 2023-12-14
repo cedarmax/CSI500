@@ -1,0 +1,15 @@
+/* MTSTACK - Empty program stack                           03/07/89  *          
+*                                                                    *          
+*  Use this exec to remove all lines from the program stack.  This   *          
+*  may be needed to prevent CMS from reading from the stack after    *          
+*  an exec terminates, usually causing the message "UNKNOWN CP/CMS   *          
+*  COMMAND".                                                         *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+   do queued()                                                                  
+     pull .                                                                     
+   end                                                                          
+exit                                                                            

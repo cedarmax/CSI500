@@ -1,0 +1,76 @@
+/* OVERLAP  - This EXEC is to be executed only by VMUTIL        03/28/90*       
+*             for the purpose of detecting disk overlaps                *       
+*             in the CP directory.  If an overlap is detected,          *       
+*             a message file is sent to CSI, MAINT, and ADMIN.          *       
+*             Then, a system SHUTDOWN is issued.  Therefore, when       *       
+*             a system IPL is done following an unexpected crash,       *       
+*             the CSI, MAINT, or ADMIN reader should be examined        *       
+*             for a SYSTEM CRASH file.                                  *       
+*                                                                       *       
+*      NOTE:  In order for this to work, VMUTIL PROFILE EXEC must       *       
+*             be changed to access CSI 500 where this EXEC is located.  *       
+*                                                                       *       
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+************************************************************************/       
+address CMS                                                                     
+/* Don't execute if not called by VMUTIL:            */                         
+   if userid()/='VMUTIL' then exit                                              
+/* Re-access CSI 500 in order to be able to recognize changes made              
+   in this EXEC.          */                                                    
+  'ACCESS 500 F/A'                                                              
+/*********************************************************************          
+   Check time to see if VMUTIL is executing this exec for times that            
+   have already passed - as it would do if VMUTIL was not active when           
+   times specified in WAKEUP PARMS occurred.  Exit if this is the case.         
+   If exit is not done under this condition, and if several specified           
+   times have passed since this exec caused a crash because of an               
+   overlap, it will continue to crash for each execution specified in           
+   WAKEUP PARMS for the times that have passed.  Thus, the user would           
+   have to continue to IPL the system after each crash until all                
+   executions had been done, because he can't fix the overlap until             
+   the system can be used.  This condition is avoided by not testing            
+   for overlaps if the VMUTIL connect time is less than 10 minutes              
+   AND the file SYSTEM CRASH A exists (which indicates that the last            
+   complete execution of this exec caused a crash).  During this                
+   period, all executions for times past should be completed.                   
+                                                                                
+   NOTE: If DTR$WAIT is terminated without VMUTIL being logged off,             
+         the connect time will be greater than 10 minutes when                  
+         DTR$WAIT is started.  Therefore, OVERLAP will be executed              
+         for all times that passed before DTR$WAIT was started.                 
+         To prevent this, you can edit WAKEUP PARMS to change the               
+         last execution date to the current date for times that have            
+         already passed.  Then, all times specified for executing               
+         OVERLAP will be in the future.                                         
+*********************************************************************/          
+   if exist('SYSTEM CRASH A')=1 then do                                         
+    'EXECIO * CP (STRING QUERY TIME'                                            
+     do queued()                                                                
+       pull line                                                                
+     end                                                                        
+     parse var line . time .                                                    
+     time=strip(time,'B')                                                       
+     if substr(time,1,2)='00' & substr(time,4,2)<'10' then exit                 
+     else 'ERASE SYSTEM CRASH A'                                                
+   end                                                                          
+  'ERASE MDMAP LIST A'                                                          
+  'MDMAP'                                                                       
+   if rc=-1 then do                                                             
+     line=copies('*',50)                                                        
+     queue line                                                                 
+     line='PROGRAMMED SYSTEM CRASH - MINIDISK OVERLAP'                          
+     line='*'center(line,48)'*'                                                 
+     queue line                                                                 
+     line=copies('*',50)                                                        
+     queue line                                                                 
+    'EXECIO * DISKR MDMAP LIST A (FINIS'                                        
+    'ERASE MDMAP LIST A'                                                        
+    'EXECIO 'queued()' DISKW SYSTEM CRASH A (FINIS'                             
+    'SENDFILE SYSTEM CRASH A TO CSI AT CSI001'                                  
+    'SENDFILE SYSTEM CRASH A TO CSI'                                            
+    'SENDFILE SYSTEM CRASH A TO MAINT'                                          
+    'SENDFILE SYSTEM CRASH A TO ADMIN'                                          
+    'CP SHUTDOWN'                                                               
+   end                                                                          
+  'ERASE MDMAP LIST A'                                                          
+   exit                                                                         

@@ -1,0 +1,36 @@
+/* SENDUSER - Send files from CSI to a customer            03/07/89  *          
+*                                                                    *          
+*  Use SENDUSER to send files from a customer's minidisk at CSI to   *          
+*  the customer's USER reader at the customer site.  This is done    *          
+*  to install custom programming on the customer's system,           *          
+*  as follows:                                                       *          
+*                                                                    *          
+*     SENDUSER disk code user                                        *          
+*              |    |    |_RSCS network ID of user.                  *          
+*              |    |_Command code or program name.                  *          
+*              |_Address of minidisk on which files are located.     *          
+*                                                                    *          
+*  Files will be sent from the specified minidisk to the "USER"      *          
+*  reader at the user location.  They must then be received on the   *          
+*  proper "USER" minidisk.                                           *          
+*                                                                    *          
+*  If the command code identifies a batch program, files for all     *          
+*  programs with a similar name will be sent.  For example, if       *          
+*  PRJ is the command code, programs PRJ01, PRJ02, and PRJ03 will    *          
+*  be included.  Therefore, if you want to send only one program,    *          
+*  use the program name instead of the command code. For example,    *          
+*  you could use PRJ02 instead of PRJ.                               *          
+*                                                                    *          
+*  SQLSTMT and SQLDAn files are not sent because they must be        *          
+*  created on the host system to which the program is sent.          *          
+*  However, a dummy SQLSTMT is sent to replace the existing SQLSTMT  *          
+*  file in order to force re-creation of these files on the host     *          
+*  system.                                                           *          
+*                                                                    *          
+* - - COPYRIGHT 12/22/90 - CENTRAL SYSTEMS, INC. - DALLAS, TEXAS - - *          
+**********************************************************************          
+*                                                                    *          
+*********************************************************************/          
+arg disk name dest .                                                            
+   'SENDCSI 'disk name dest 'SENDUSER'                                          
+exit                                                                            
